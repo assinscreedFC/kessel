@@ -10,13 +10,17 @@
     "build": "nx run-many -t build"
   },
   "devDependencies": {
-    "nx": "22.7.5",
-    "@nx/js": "22.7.5",
     "@nx/eslint": "22.7.5",
-    "@nx/vite": "22.7.5",
-    "@nx/nest": "22.7.5",
     "@nx/eslint-plugin": "22.7.5",
+    "@nx/js": "22.7.5",
+    "@nx/nest": "22.7.5",
+    "@nx/vite": "22.7.5",
+    "@typescript-eslint/utils": "^8.61.0",
+    "eslint": "^9",
+    "eslint-config-prettier": "^9.1.2",
+    "jsonc-eslint-parser": "^2.4.2",
+    "nx": "22.7.5",
     "typescript": "~5.6",
-    "eslint": "^9"
+    "typescript-eslint": "^8.61.0"
   }
 }
