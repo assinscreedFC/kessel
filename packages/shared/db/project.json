@@ -1,0 +1,7 @@
+{
+  "name": "db",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/shared/db/src",
+  "projectType": "library",
+  "tags": ["type:db", "scope:db"]
+}

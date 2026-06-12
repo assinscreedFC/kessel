@@ -1,0 +1,7 @@
+{
+  "name": "timetrack",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/timetrack/src",
+  "projectType": "library",
+  "tags": ["type:domain", "scope:timetrack"]
+}

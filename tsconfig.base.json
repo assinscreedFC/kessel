@@ -1,0 +1,32 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2021",
+    "module": "esnext",
+    "lib": ["es2021"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "strict": true,
+    "paths": {
+      "@kessel/shared": ["packages/shared/src/index.ts"],
+      "@kessel/db": ["packages/shared/db/src/index.ts"],
+      "@kessel/auth": ["packages/auth/src/index.ts"],
+      "@kessel/crm": ["packages/crm/src/index.ts"],
+      "@kessel/proposals": ["packages/proposals/src/index.ts"],
+      "@kessel/projects": ["packages/projects/src/index.ts"],
+      "@kessel/timetrack": ["packages/timetrack/src/index.ts"],
+      "@kessel/invoicing": ["packages/invoicing/src/index.ts"],
+      "@kessel/portal": ["packages/portal/src/index.ts"],
+      "@kessel/ai": ["packages/ai/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

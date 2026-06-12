@@ -1,0 +1,7 @@
+{
+  "name": "crm",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/crm/src",
+  "projectType": "library",
+  "tags": ["type:domain", "scope:crm"]
+}

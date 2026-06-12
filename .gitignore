@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Build output
+dist/
+tmp/
+out-tsc/
+
+# Test / coverage
+coverage/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.log
