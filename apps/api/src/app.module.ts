@@ -18,6 +18,7 @@ import { AiProposalService, AnthropicProposalGenerator, PROPOSAL_GENERATOR } fro
 import { ProjectsService } from "@kessel/projects";
 import { HealthController } from "./health/health.controller";
 import { ProjectsController } from "./projects/projects.controller";
+import { TasksController } from "./projects/tasks.controller";
 import { SettingsController } from "./settings/settings.controller";
 import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
@@ -37,6 +38,10 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
 // ThrottlerModule.forRoot : rate-limit in-memory (mono-instance self-host v0, RESEARCH A1). Le
 // ThrottlerGuard est appliqué de façon CIBLÉE via @UseGuards sur le contrôleur public uniquement
 // (pas en APP_GUARD global) -> les routes authentifiées du dashboard ne sont pas throttlées.
+//
+// Module Project (Phase 2, Plan 03) : ProjectsController (GET list/detail/tasks, PATCH status) +
+// TasksController (PATCH done) injectent ProjectsService (@kessel/projects). Kysely reads,
+// Prisma writes — convention stack CLAUDE.md. Isolation org : Kysely WHERE orgId + forOrg writes.
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -60,6 +65,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     PricingController,
     PublicProposalsController,
     ProjectsController,
+    TasksController,
   ],
   // PROPOSAL_GENERATOR (token DI Symbol) bindé à l'impl Anthropic en prod. En test e2e, on l'override
   // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).

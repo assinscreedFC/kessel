@@ -113,9 +113,15 @@ export async function bootTestApp(): Promise<BootedApp> {
     }
   }
 
+  // ThrottlerGuard désactivé en e2e : les specs seedent plusieurs projets via la route sign
+  // publique (limit=5/min) — le throttle teste la sécurité rate-limit, pas la logique métier.
+  // Les specs de throttling dédiées (si elles existent) bootent leur propre app sans ce stub.
+  const { ThrottlerGuard } = await import("@nestjs/throttler");
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(StorageService)
     .useValue(new StorageStub())
+    .overrideGuard(ThrottlerGuard)
+    .useValue({ canActivate: () => true })
     .compile();
   const app = moduleRef.createNestApplication({ bodyParser: false, logger: false });
   // Même ValidationPipe global qu'en prod (main.ts).
