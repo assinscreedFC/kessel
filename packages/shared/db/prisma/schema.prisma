@@ -113,11 +113,22 @@ model Deal {
 }
 
 // === Propositions & tarifs (Phase 3) ===
-// ProposalStatus : enum volontairement réduit à DRAFT en Phase 3. SENT/SIGNED viendront en Phase 5
-// (livraison & e-sign) — NE PAS les ajouter maintenant (YAGNI ; les phases suivantes les introduiront
-// avec leur logique de transition).
+// ProposalStatus : ordre FIXE DRAFT -> SENT -> SIGNED. DRAFT posé en Phase 3 ; la Phase 5
+// (livraison & e-sign) introduit SENT (à l'envoi, génère le share token) et SIGNED (à la signature
+// PAdES). NE PAS réordonner ni retirer de valeur — les transitions (send/sign) et DELIV-04
+// (deal -> WON à la signature) en dépendent.
 enum ProposalStatus {
   DRAFT
+  SENT
+  SIGNED
+}
+
+// ProposalEventType : tracking d'ouverture/consultation du lien public (DELIV-02). SENT (envoi),
+// OPENED (premier chargement du lien), VIEWED (consultation effective). Ordre fixe.
+enum ProposalEventType {
+  SENT
+  OPENED
+  VIEWED
 }
 
 // Proposal : corps de proposition rédigé (PROP-01). orgId FK -> Organization.id canonique.
@@ -131,11 +142,19 @@ model Proposal {
   title     String
   bodyJson  Json // JSONB — document ProseMirror/Tiptap (source de vérité du corps)
   status    ProposalStatus @default(DRAFT)
+  // === Livraison & e-sign (Phase 5) ===
+  // shareTokenHash : SHA-256 (hex) du share token public, JAMAIS le token brut (T-5-token). Nullable
+  // jusqu'à l'envoi. @unique -> lookup public O(1) par hash (basePrisma.findUnique, pas forOrg).
+  shareTokenHash String? @unique
+  sentAt    DateTime? // horodatage de l'envoi (transition DRAFT -> SENT)
+  signedAt  DateTime? // horodatage de la signature (transition SENT -> SIGNED)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deal      Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
   lines     QuoteLine[]
+  events    ProposalEvent[]
+  signatures Signature[]
 
   @@index([orgId])
   @@index([dealId])
@@ -187,6 +206,45 @@ model QuoteLine {
   unitPrice   Decimal @db.Decimal(12, 2)
   position    Int
   proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+}
+
+// === Livraison & e-sign (Phase 5) ===
+// ProposalEvent : tracking ouvert/vu du lien public (DELIV-02). PAS de colonne orgId — scopé VIA son
+// parent Proposal (exactement le pattern QuoteLine), donc VOLONTAIREMENT ABSENT de SCOPED_MODELS
+// (tenant-client.ts) : l'y ajouter injecterait un orgId inexistant et casserait les requêtes.
+// L'accès dashboard passe TOUJOURS par une Proposal forOrg-scopée
+// (proposal.findUnique({ include: { events } })) — jamais par un proposalEvent.findMany direct ;
+// l'isolation cross-tenant est prouvée par l'inaccessibilité du parent (delivery-isolation.spec.ts).
+// meta JSONB nullable (RGPD, T-5-privacy) : ip TRONQUÉE (ex. /24) + ua tronqué, ou null. Pas de PII
+// excessive, pas de pixel tiers, pas de colonne PII dédiée.
+model ProposalEvent {
+  id         String            @id @default(uuid())
+  proposalId String
+  type       ProposalEventType
+  occurredAt DateTime          @default(now())
+  meta       Json? // RGPD : ip tronquée/ua tronqué/null — jamais de PII brute
+  proposal   Proposal          @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+}
+
+// Signature : enregistrement de la signature en ligne (DELIV-03, piste d'audit). PAS de colonne orgId
+// — scopé VIA son parent Proposal (pattern QuoteLine), donc ABSENT de SCOPED_MODELS. Artefact légal
+// (équivalent Documenso) : signerName/signerEmail (consentement saisi par le client), signedAt,
+// documentHash (SHA-256 du PDF signé), signedPdfKey (clé MinIO du PDF stocké), auditTrail JSONB
+// (snapshot borné des events — whitelist, jamais de PII brute). Accès médié par la Proposal forOrg-scopée.
+model Signature {
+  id           String   @id @default(uuid())
+  proposalId   String
+  signerName   String
+  signerEmail  String
+  signedAt     DateTime @default(now())
+  documentHash String // SHA-256 (hex) du PDF signé — vérifiabilité de l'artefact
+  signedPdfKey String // clé de l'objet MinIO (PDF signé stocké)
+  auditTrail   Json? // snapshot borné des events (whitelist) — jamais de PII brute
+  proposal     Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@index([proposalId])
 }

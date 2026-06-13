@@ -12,9 +12,17 @@ export const DealStatus = {
 } as const;
 export type DealStatus = (typeof DealStatus)[keyof typeof DealStatus];
 export const ProposalStatus = {
-    DRAFT: "DRAFT"
+    DRAFT: "DRAFT",
+    SENT: "SENT",
+    SIGNED: "SIGNED"
 } as const;
 export type ProposalStatus = (typeof ProposalStatus)[keyof typeof ProposalStatus];
+export const ProposalEventType = {
+    SENT: "SENT",
+    OPENED: "OPENED",
+    VIEWED: "VIEWED"
+} as const;
+export type ProposalEventType = (typeof ProposalEventType)[keyof typeof ProposalEventType];
 export type Contact = {
     id: string;
     orgId: string;
@@ -65,8 +73,18 @@ export type Proposal = {
     title: string;
     bodyJson: unknown;
     status: Generated<ProposalStatus>;
+    shareTokenHash: string | null;
+    sentAt: Timestamp | null;
+    signedAt: Timestamp | null;
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
+};
+export type ProposalEvent = {
+    id: string;
+    proposalId: string;
+    type: ProposalEventType;
+    occurredAt: Generated<Timestamp>;
+    meta: unknown | null;
 };
 export type ProposalTemplate = {
     id: string;
@@ -84,6 +102,16 @@ export type QuoteLine = {
     unitPrice: string;
     position: number;
 };
+export type Signature = {
+    id: string;
+    proposalId: string;
+    signerName: string;
+    signerEmail: string;
+    signedAt: Generated<Timestamp>;
+    documentHash: string;
+    signedPdfKey: string;
+    auditTrail: unknown | null;
+};
 export type DB = {
     Contact: Contact;
     Deal: Deal;
@@ -91,6 +119,8 @@ export type DB = {
     OrgNote: OrgNote;
     PricingItem: PricingItem;
     Proposal: Proposal;
+    ProposalEvent: ProposalEvent;
     ProposalTemplate: ProposalTemplate;
     QuoteLine: QuoteLine;
+    Signature: Signature;
 };

@@ -20,11 +20,13 @@ import { basePrisma } from "./client";
 // par orgId — c'est la table d'identité org elle-même. Les futurs modèles métier portant un orgId
 // FK vers organization.id (CRM, propositions...) s'ajoutent ici.
 //
-// QuoteLine est VOLONTAIREMENT ABSENT de ce Set : ce modèle n'a PAS de colonne orgId. Il est scopé
-// via son parent Proposal (QuoteLine.proposalId -> Proposal, elle-même orgId-scopée). L'accès aux
-// lignes passe TOUJOURS par une Proposal forOrg-scopée (ex. proposal.findUnique({ include: { lines }}))
-// — jamais par un QuoteLine.findMany direct. L'ajouter ici injecterait un orgId inexistant sur la
-// table et casserait les requêtes. L'isolation cross-tenant de QuoteLine est prouvée via le parent.
+// QuoteLine, ProposalEvent et Signature sont VOLONTAIREMENT ABSENTS de ce Set : ces modèles n'ont PAS
+// de colonne orgId. Ils sont scopés via leur parent Proposal (FK proposalId -> Proposal, elle-même
+// orgId-scopée). L'accès passe TOUJOURS par une Proposal forOrg-scopée
+// (ex. proposal.findUnique({ include: { lines | events | signatures } })) — jamais par un
+// quoteLine/proposalEvent/signature.findMany direct. Les ajouter ici injecterait un orgId inexistant
+// sur la table et casserait les requêtes. Leur isolation cross-tenant est prouvée via l'inaccessibilité
+// du parent (proposals-isolation.spec.ts pour QuoteLine ; delivery-isolation.spec.ts pour ProposalEvent/Signature).
 const SCOPED_MODELS = new Set<string>([
   "OrgNote",
   "Contact",
