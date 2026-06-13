@@ -19,6 +19,20 @@ export default [
           allow: ["../../../../tests/setup/testcontainers"],
           depConstraints: [
             {
+              // L'app shell (api) câble les modules : peut dépendre des domaines + db + shared.
+              sourceTag: "type:app",
+              onlyDependOnLibsWithTags: [
+                "type:app",
+                "type:domain",
+                "type:domain-api",
+                "type:db",
+                "type:shared",
+                "scope:auth",
+                "scope:db",
+                "scope:shared",
+              ],
+            },
+            {
               sourceTag: "type:shared",
               onlyDependOnLibsWithTags: ["type:shared"],
             },
