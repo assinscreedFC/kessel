@@ -22,3 +22,7 @@ export * from "./money";
 
 // Helper TVA partagé (Phase 1) : computeVat ROUND_HALF_UP par groupe — socle TVA UE Phase 7.
 export * from "./vat";
+
+// Contrats module Project (Phase 2) : ProjectStatus + BudgetSnapshot/ProjectDto/TaskDto + inputs,
+// framework-free, dépendables par api ET web (FOUND-05).
+export * from "./contracts/projects";
