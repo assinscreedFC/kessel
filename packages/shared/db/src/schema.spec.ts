@@ -226,4 +226,65 @@ describe("schema métier multi-tenant (FOUND-01, real Postgres)", () => {
       .executeTakeFirst();
     expect(afterCascade).toBeUndefined();
   });
+
+  // === Smoke ProposalOutcome (Phase 6, AI-01) — issue structurée scopée via parent ===
+  // Prouve que le push a créé la table ProposalOutcome + l'enum OutcomeKind, que proposalId @unique
+  // rejette un 2e outcome sur la même proposition (idempotence DB, T-6-idem), et que la cascade delete
+  // suit la Proposal parente (FK onDelete Cascade).
+  it("crée un ProposalOutcome(WON), rejette un 2e outcome sur la même proposition (@unique), cascade delete via Proposal", async () => {
+    // Une Proposal dédiée (prop-1 a été supprimée par le test QuoteLine ci-dessus).
+    await db
+      .insertInto("Proposal")
+      .values({
+        id: "prop-outcome",
+        orgId: "org-A",
+        dealId: "deal-p",
+        title: "Proposition résolue",
+        bodyJson: JSON.stringify({ type: "doc", content: [] }),
+        updatedAt: now,
+      })
+      .execute();
+
+    // ProposalOutcome n'a pas d'updatedAt ni de défaut DB sur context : on fournit context (JSONB).
+    await db
+      .insertInto("ProposalOutcome")
+      .values({
+        id: "outcome-1",
+        proposalId: "prop-outcome",
+        outcome: "WON",
+        context: JSON.stringify({ amount: "1037.05", lineCount: 2, deliverableCount: 2, bodyTextLength: 42 }),
+      })
+      .execute();
+
+    const outcome = await db
+      .selectFrom("ProposalOutcome")
+      .selectAll()
+      .where("id", "=", "outcome-1")
+      .executeTakeFirst();
+    expect(outcome).toBeDefined();
+    expect(outcome?.outcome).toBe("WON");
+    expect(outcome?.proposalId).toBe("prop-outcome");
+
+    // @unique sur proposalId : un 2e outcome sur la MÊME proposition est rejeté au niveau DB.
+    await expect(
+      db
+        .insertInto("ProposalOutcome")
+        .values({
+          id: "outcome-dup",
+          proposalId: "prop-outcome",
+          outcome: "LOST",
+          context: JSON.stringify({ amount: "0.00", lineCount: 0, deliverableCount: 0, bodyTextLength: 0 }),
+        })
+        .execute(),
+    ).rejects.toThrow();
+
+    // Cascade : supprimer la Proposal supprime son ProposalOutcome.
+    await db.deleteFrom("Proposal").where("id", "=", "prop-outcome").execute();
+    const afterCascade = await db
+      .selectFrom("ProposalOutcome")
+      .selectAll()
+      .where("id", "=", "outcome-1")
+      .executeTakeFirst();
+    expect(afterCascade).toBeUndefined();
+  });
 });

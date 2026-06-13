@@ -155,6 +155,7 @@ model Proposal {
   lines     QuoteLine[]
   events    ProposalEvent[]
   signatures Signature[]
+  outcome   ProposalOutcome? // issue structurée 1-0/1 (AI-01, Phase 6) — relation inverse
 
   @@index([orgId])
   @@index([dealId])
@@ -245,6 +246,31 @@ model Signature {
   signedPdfKey String // clé de l'objet MinIO (PDF signé stocké)
   auditTrail   Json? // snapshot borné des events (whitelist) — jamais de PII brute
   proposal     Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+}
+
+// === Boucle de données flywheel (Phase 6, AI-01) ===
+// OutcomeKind : issue d'une proposition résolue. Ordre fixe — AI-02 lit WON pour le few-shot,
+// LOST disponible comme contre-signal futur (CONTEXT : gagné prioritaire en v0).
+enum OutcomeKind {
+  WON
+  LOST
+}
+
+// ProposalOutcome : issue structurée d'une proposition résolue (AI-01). PAS de colonne orgId —
+// scopé VIA son parent Proposal (pattern QuoteLine/ProposalEvent/Signature), donc ABSENT de
+// SCOPED_MODELS (tenant-client.ts). proposalId @unique = une issue par proposition (idempotence).
+// context JSONB = SNAPSHOT figé à la résolution (RGPD : pas de PII client — features dérivées +
+// segment non-identifiant ; aucun nom/email). AI-02 lit outcome WON via readResolvedOutcomes.
+model ProposalOutcome {
+  id         String      @id @default(uuid())
+  proposalId String      @unique
+  outcome    OutcomeKind
+  decidedAt  DateTime    @default(now())
+  reason     String? // pourquoi gagné/perdu — optionnel (surtout LOST)
+  context    Json // snapshot JSONB figé (amount string, lineCount, deliverableCount, bodyTextLength)
+  proposal   Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@index([proposalId])
 }

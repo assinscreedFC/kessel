@@ -23,6 +23,11 @@ export const ProposalEventType = {
     VIEWED: "VIEWED"
 } as const;
 export type ProposalEventType = (typeof ProposalEventType)[keyof typeof ProposalEventType];
+export const OutcomeKind = {
+    WON: "WON",
+    LOST: "LOST"
+} as const;
+export type OutcomeKind = (typeof OutcomeKind)[keyof typeof OutcomeKind];
 export type Contact = {
     id: string;
     orgId: string;
@@ -86,6 +91,14 @@ export type ProposalEvent = {
     occurredAt: Generated<Timestamp>;
     meta: unknown | null;
 };
+export type ProposalOutcome = {
+    id: string;
+    proposalId: string;
+    outcome: OutcomeKind;
+    decidedAt: Generated<Timestamp>;
+    reason: string | null;
+    context: unknown;
+};
 export type ProposalTemplate = {
     id: string;
     orgId: string;
@@ -120,6 +133,7 @@ export type DB = {
     PricingItem: PricingItem;
     Proposal: Proposal;
     ProposalEvent: ProposalEvent;
+    ProposalOutcome: ProposalOutcome;
     ProposalTemplate: ProposalTemplate;
     QuoteLine: QuoteLine;
     Signature: Signature;
