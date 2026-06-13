@@ -15,6 +15,7 @@ import { useExportPdf } from "@/features/proposal-editor/lib/use-export-pdf";
 import { QuoteBuilder } from "@/features/quote-builder/ui/quote-builder";
 import { AiDraftBanner } from "@/features/generate-proposal/ui/ai-draft-banner";
 import { SendProposalActions } from "@/features/send-proposal/ui/send-proposal-actions";
+import { ProposalTimeline } from "@/features/proposal-timeline/ui/proposal-timeline";
 
 // Page éditeur de proposition (route /proposals/:id, 03-UI-SPEC §Proposal Editor page). Layout pleine
 // largeur (WideAppShell) : header sticky (Retour + titre borderless + indicateur autosave + Exporter
@@ -96,8 +97,9 @@ function LoadedEditor({ proposal, aiGenerated }: { proposal: Proposal; aiGenerat
         <div className="min-w-0 flex-1">
           <ProposalEditor initialContent={initialBody} onChange={onBodyChange} />
         </div>
-        <div className="lg:w-[420px] lg:shrink-0">
+        <div className="flex flex-col gap-8 lg:w-[420px] lg:shrink-0">
           <QuoteBuilder proposal={proposal} />
+          <ProposalTimeline proposalId={proposal.id} status={proposal.status} />
         </div>
       </div>
     </div>

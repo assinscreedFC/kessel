@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/ui/dropdown-menu";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -124,14 +125,7 @@ export function ProposalsPage() {
                     <TableCell className="font-medium">{proposal.title}</TableCell>
                     <TableCell className="text-slate-500">{dealName(proposal.dealId)}</TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-                          meta.badge,
-                        )}
-                      >
-                        {meta.label}
-                      </span>
+                      <Badge className={cn(meta.badge)}>{meta.label}</Badge>
                     </TableCell>
                     <TableCell className="text-slate-500">
                       {dateFormatter.format(new Date(proposal.updatedAt))}
