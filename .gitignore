@@ -22,3 +22,6 @@ coverage/
 .DS_Store
 Thumbs.db
 *.log
+
+# GSD planning artifacts (private)
+.planning/
