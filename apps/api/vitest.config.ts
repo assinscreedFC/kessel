@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
+import swc from "unplugin-swc";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../..");
@@ -9,7 +10,12 @@ const repoRoot = resolve(here, "../..");
 // hookTimeout élevé : démarrage conteneur Postgres + migrations Better Auth + prisma db push (~30-90s).
 // Tests séquentiels (singleFork) : chaque spec démarre son propre conteneur ; pas de partage d'état.
 // alias : réplique les paths @kessel/* de tsconfig.base.json pour que vitest résolve les packages.
+//
+// SWC (unplugin-swc) remplace le transform esbuild par défaut de vitest : esbuild N'ÉMET PAS
+// design:paramtypes (emitDecoratorMetadata non supporté) -> sans lui, le DI NestJS et le ValidationPipe
+// (qui lisent le type réflexif des params) seraient cassés. SWC émet la métadonnée -> validation DTO réelle.
 export default defineConfig({
+  plugins: [swc.vite()],
   resolve: {
     alias: {
       "@kessel/auth": resolve(repoRoot, "packages/auth/src/index.ts"),

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
@@ -15,7 +15,10 @@ import { UpdateContactDto } from "./dto/update-contact.dto";
 // par CrmService -> forOrg(requireOrg(session)) : l'org active de la session est l'unique source.
 @Controller("api/contacts")
 export class ContactsController {
-  constructor(private readonly crm: CrmService) {}
+  // @Inject explicite (pas seulement le type du paramètre) : le bundle esbuild (build prod) et le
+  // transform esbuild de vitest n'émettent PAS design:paramtypes (emitDecoratorMetadata non supporté).
+  // Sans @Inject, le token DI serait Object -> CrmService non résolu (this.crm undefined).
+  constructor(@Inject(CrmService) private readonly crm: CrmService) {}
 
   @Get()
   async list(@Session() session: UserSession<typeof auth>): Promise<ContactDto[]> {

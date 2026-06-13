@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Inject, Param, Patch, Post, Query } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
@@ -12,7 +12,8 @@ import { UpdateDealDto } from "./dto/update-deal.dto";
 // AUCUNE restriction de rôle org (member autorisé). Scoping ORM via CrmService -> forOrg.
 @Controller("api/deals")
 export class DealsController {
-  constructor(private readonly crm: CrmService) {}
+  // @Inject explicite : esbuild (build + vitest) n'émet pas design:paramtypes -> token DI requis.
+  constructor(@Inject(CrmService) private readonly crm: CrmService) {}
 
   // CRM-03 : filtre statut CÔTÉ SERVEUR. query.status (validé enum) est passé au service qui
   // ajoute where.status au findMany scopé. Sans param -> tous les deals de l'org.

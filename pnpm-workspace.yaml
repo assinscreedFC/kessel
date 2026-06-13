@@ -3,8 +3,9 @@ packages:
   - "packages/*"
   - "packages/shared/*"
 
-# Build scripts autorisés (téléchargement des engines Prisma + esbuild) — pnpm 10 strict.
+# Build scripts autorisés (téléchargement des engines Prisma + esbuild + binaire natif SWC) — pnpm 10 strict.
 onlyBuiltDependencies:
   - "@prisma/engines"
   - prisma
   - esbuild
+  - "@swc/core"

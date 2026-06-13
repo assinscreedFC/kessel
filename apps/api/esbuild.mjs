@@ -1,6 +1,8 @@
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import { transform as swcTransform } from "@swc/core";
 
 // Build de l'API NestJS pour l'image Docker (Plan 05, FOUND-04).
 //
@@ -29,6 +31,33 @@ const alias = {
   "@kessel/crm": resolve(repoRoot, "packages/crm/src/index.ts"),
 };
 
+// Plugin SWC : esbuild N'ÉMET PAS design:paramtypes (emitDecoratorMetadata non supporté) — sans cela,
+// le DI NestJS (résolution par type de paramètre) et le ValidationPipe (lecture du metatype des DTO)
+// seraient cassés EN PROD. On transpile donc les .ts via @swc/core (legacyDecorator + decoratorMetadata)
+// AVANT le bundling esbuild. Couvre apps/api/src + les sources @kessel/* inlinées (controllers/DTO/service).
+const swcDecoratorMetadataPlugin = {
+  name: "swc-decorator-metadata",
+  setup(buildApi) {
+    buildApi.onLoad({ filter: /\.ts$/ }, async (args) => {
+      const source = await readFile(args.path, "utf8");
+      const { code, map } = await swcTransform(source, {
+        filename: args.path,
+        sourceMaps: true,
+        jsc: {
+          target: "es2021",
+          parser: { syntax: "typescript", decorators: true },
+          transform: { legacyDecorator: true, decoratorMetadata: true },
+          keepClassNames: true,
+        },
+      });
+      const withMap = map
+        ? `${code}\n//# sourceMappingURL=data:application/json;base64,${Buffer.from(map).toString("base64")}`
+        : code;
+      return { contents: withMap, loader: "js" };
+    });
+  },
+};
+
 const banner = {
   // Banner : shim require/__dirname pour les paquets CJS chargés depuis un bundle ESM (NestJS, pg).
   js: [
@@ -50,6 +79,7 @@ const common = {
   alias,
   sourcemap: true,
   banner,
+  plugins: [swcDecoratorMetadataPlugin], // émet design:paramtypes (DI + ValidationPipe) — cf. plugin ci-dessus
 };
 
 // main.js : serveur NestJS. migrate.js : runner de migration additive Better Auth (entrypoint).

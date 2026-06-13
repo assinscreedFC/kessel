@@ -33,7 +33,10 @@ const dbPackageDir = resolve(here, "../../../packages/shared/db");
 
 function pushPrismaSchema(databaseUrl: string): void {
   // Bin Prisma via `node <bin>` (cross-platform ; évite spawnSync npx.cmd EINVAL Windows).
-  const require = createRequire(import.meta.url);
+  // Résolution ANCRÉE au package db (qui dépend de prisma) plutôt qu'à import.meta.url : sous le
+  // transform SWC (vitest) import.meta.url pointe le source apps/api d'où prisma n'est pas résoluble
+  // (il vit dans packages/shared/db/node_modules). On résout donc depuis dbPackageDir.
+  const require = createRequire(resolve(dbPackageDir, "package.json"));
   const prismaBin = resolve(
     dirname(require.resolve("prisma/package.json")),
     "build",
