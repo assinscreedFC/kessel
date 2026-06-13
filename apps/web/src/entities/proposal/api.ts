@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/shared/api/client";
+import { api, ApiError } from "@/shared/api/client";
 import { toast } from "@/shared/ui/sonner";
+import type { GenerateProposalRequest } from "@kessel/shared";
 import type { Proposal } from "./model";
 
 // Couche data de l'entité Proposal (couche `entities`). Hooks TanStack Query consommant /api/proposals
@@ -78,6 +79,38 @@ export function useDeleteProposal(onSuccess?: () => void) {
       onSuccess?.();
     },
     onError: () => toast.error("Échec de la suppression. Réessayez."),
+  });
+}
+
+// === Génération IA (POST /api/proposals/generate, Plan 04-02/03) ===
+// Le serveur a déjà persisté une Proposal DRAFT (corps + lignes) -> on reçoit une ProposalDto standard.
+// Deux classes d'échec distinctes pour l'UI (04-UI-SPEC) :
+//   - 503 -> IA désactivée (clé ANTHROPIC_API_KEY absente serveur) : pas de retry utile.
+//   - autre -> échec générique (LLM/réseau/IDOR) : retry possible, jamais de détail serveur leaké.
+// L'annulation passe par un AbortController (signal) : l'UI abort -> la requête in-flight est coupée,
+// le brief reste préservé côté Dialog (state local, pas dans cette mutation).
+
+export type GenerationError = "ai-disabled" | "failed";
+
+export function classifyGenerationError(error: unknown): GenerationError {
+  if (error instanceof ApiError && error.status === 503) return "ai-disabled";
+  return "failed";
+}
+
+export interface GenerateProposalVars extends GenerateProposalRequest {
+  signal?: AbortSignal;
+}
+
+export function useGenerateProposal() {
+  const queryClient = useQueryClient();
+  return useMutation<Proposal, unknown, GenerateProposalVars>({
+    mutationFn: ({ signal, ...body }: GenerateProposalVars) =>
+      api.post<Proposal>("/proposals/generate", body, signal),
+    onSuccess: () => {
+      // La nouvelle DRAFT générée apparaît dans la liste -> invalider (pas de toast ici :
+      // le hand-off vers l'éditeur déclenche le toast de succès, l'erreur est inline dans le Dialog).
+      queryClient.invalidateQueries({ queryKey: PROPOSALS_KEY });
+    },
   });
 }
 
