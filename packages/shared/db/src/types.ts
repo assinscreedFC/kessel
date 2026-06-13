@@ -7,6 +7,9 @@ export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 export type Organization = {
     id: string;
     name: string;
+    slug: string;
+    logo: string | null;
+    metadata: string | null;
     createdAt: Generated<Timestamp>;
 };
 export type OrgNote = {

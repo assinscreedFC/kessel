@@ -14,9 +14,12 @@ import { Pool } from "pg";
 // et stocke les sessions en DB (string, pas JWT vendor — V3 session management).
 //
 // ORDRE DE MIGRATION (recréation de DB, ex. tests / CI) :
-//   1. Better Auth migrate (crée organization/member/role + user/session/account) — runBetterAuthMigrations().
-//   2. PUIS Prisma db push des tables métier (OrgNote.orgId est un FK vers organization.id).
-// Inverser l'ordre casse le FK (organization n'existe pas encore). Voir runBetterAuthMigrations.
+//   1. Prisma db push : crée `organization` (MIROIR FIDÈLE des colonnes canoniques Better Auth :
+//      id/name/slug/logo/metadata/createdAt) + OrgNote + le FK. `db push` est un reconcile DESTRUCTIF
+//      (il DROP toute table absente du schéma Prisma) → il doit passer EN PREMIER.
+//   2. PUIS Better Auth migrate (runBetterAuthMigrations) : ADDITIF — voit `organization` déjà
+//      complète, ne crée QUE user/session/account/member/invitation/verification.
+// Inverser l'ordre ferait droper user/session/account par le push Prisma. Un seul espace d'id org.
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {

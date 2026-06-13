@@ -8,8 +8,10 @@ import { auth } from "./auth";
 // exposée par `better-auth/db`. Elle crée user/session/account + organization/member/role
 // (plugin organization) sur le Postgres ciblé par DATABASE_URL.
 //
-// ORDRE (recréation de DB) : runBetterAuthMigrations() AVANT le `prisma db push` métier,
-// car OrgNote.orgId est un FK vers organization.id (table créée ICI).
+// ORDRE (recréation de DB) : `prisma db push` D'ABORD (crée `organization` miroir + OrgNote + FK ;
+// db push est destructif, il DROP les tables hors schéma), PUIS runBetterAuthMigrations() qui est
+// ADDITIF (ne crée que les tables manquantes : user/session/account/member/invitation/verification ;
+// respecte `organization` pré-créée). L'inverse ferait effacer user/session/account par le push.
 
 export async function runBetterAuthMigrations(): Promise<void> {
   // auth.options porte la config résolue (database, plugins) consommée par getMigrations.

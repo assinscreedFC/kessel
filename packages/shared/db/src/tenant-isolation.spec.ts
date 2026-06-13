@@ -59,8 +59,9 @@ describe("tenant-isolation: Org A cannot read/write Org B (FOUND-01, real Postgr
 
     // Setup NON scopé (basePrisma) : 2 orgs canoniques + 1 OrgNote chacune.
     // Les orgId des notes RÉFÈRENT organization.id (FK valide) — pas d'org fantôme.
-    await basePrisma.organization.create({ data: { id: ORG_A, name: "Org A" } });
-    await basePrisma.organization.create({ data: { id: ORG_B, name: "Org B" } });
+    // slug est requis (colonne canonique Better Auth, contrainte unique).
+    await basePrisma.organization.create({ data: { id: ORG_A, name: "Org A", slug: "org-a" } });
+    await basePrisma.organization.create({ data: { id: ORG_B, name: "Org B", slug: "org-b" } });
     const noteA = await basePrisma.orgNote.create({
       data: { orgId: ORG_A, body: "secret A" },
     });

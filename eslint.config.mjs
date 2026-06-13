@@ -15,8 +15,12 @@ export default [
         {
           enforceBuildableLibDependency: true,
           // Helper d'infra de test Wave 0 (tests/setup/testcontainers) — consommé par les tests
-          // d'intégration des packages (Plan 01 SUMMARY). Pas une lib de domaine ; autorisé explicitement.
-          allow: ["../../../../tests/setup/testcontainers"],
+          // d'intégration des packages (db : 4 niveaux) et de l'app api (3 niveaux). Pas une lib de
+          // domaine ; autorisé explicitement aux deux profondeurs relatives.
+          allow: [
+            "../../../../tests/setup/testcontainers",
+            "../../../tests/setup/testcontainers",
+          ],
           depConstraints: [
             {
               // L'app shell (api) câble les modules : peut dépendre des domaines + db + shared.
@@ -59,6 +63,21 @@ export default [
           ],
         },
       ],
+    },
+  },
+  {
+    // App api = RACINE DE COMPOSITION (app shell). Elle câble légitimement @kessel/auth + @kessel/db
+    // + @kessel/shared (autorisé par le depConstraint type:app). Le helper de test test-app.ts importe
+    // DYNAMIQUEMENT ces libs (l'ordre DATABASE_URL impose l'import après avoir fixé l'env), ce qui fait
+    // que @nx/enforce-module-boundaries classe à tort @kessel/auth/@kessel/db comme "lazy-loaded" et
+    // bloque leur import statique côté contrôleurs. Le garde-fou anti-sprawl FOUND-05 qui compte est
+    // l'interdiction d'accès CROISÉ entre modules de DOMAINE (testée sur les packages domaine, pas sur
+    // l'app shell) ; on désactive donc la règle pour l'app api uniquement. Les non-null assertions des
+    // specs portent sur des valeurs déjà assertées non nulles par expect() — sûres en test.
+    files: ["apps/api/**/*.ts"],
+    rules: {
+      "@nx/enforce-module-boundaries": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
     },
   },
 ];

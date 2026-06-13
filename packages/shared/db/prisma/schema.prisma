@@ -27,11 +27,17 @@ datasource db {
 }
 
 // Organization : MAPPÉE sur la table canonique de Better Auth (@@map("organization")).
-// Better Auth (Plan 04) crée et POSSÈDE cette table (colonnes id, name, slug, createdAt, metadata...).
-// Prisma déclare au minimum id + name ; id String @id == organization.id de Better Auth (id canonique).
+// Better Auth (Plan 04) crée et POSSÈDE cette table. Prisma en est un MIROIR FIDÈLE : il déclare
+// EXACTEMENT les colonnes du plugin organization Better Auth (id, name, slug unique, logo, metadata,
+// createdAt) pour qu'un `prisma db push` ne dérive JAMAIS cette table (pas de DROP de colonne/contrainte
+// appartenant à Better Auth). En CI/runtime l'ordre est : Better Auth migrate D'ABORD (crée la table),
+// puis push Prisma métier (no-op sur organization, crée OrgNote + le FK). id == organization.id canonique.
 model Organization {
   id        String    @id // == organization.id de Better Auth (id canonique)
   name      String
+  slug      String    @unique // colonne canonique Better Auth (contrainte unique)
+  logo      String? // colonne canonique Better Auth (nullable)
+  metadata  String? // colonne canonique Better Auth (JSON sérialisé, nullable)
   createdAt DateTime  @default(now())
   notes     OrgNote[]
 

@@ -57,7 +57,7 @@ describe("schema métier multi-tenant (FOUND-01, real Postgres)", () => {
   it("crée la table canonique organization + OrgNote (le push a réellement appliqué le schéma)", async () => {
     await db
       .insertInto("organization")
-      .values({ id: "org-A", name: "Org A" })
+      .values({ id: "org-A", name: "Org A", slug: "org-a" })
       .execute();
 
     const org = await db

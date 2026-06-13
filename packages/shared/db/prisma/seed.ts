@@ -10,15 +10,16 @@ export const ORG_B_ID = "org-B";
 async function main(): Promise<void> {
   const prisma = new PrismaClient();
   try {
+    // slug requis (colonne canonique Better Auth, unique).
     await prisma.organization.upsert({
       where: { id: ORG_A_ID },
       update: {},
-      create: { id: ORG_A_ID, name: "Org A" },
+      create: { id: ORG_A_ID, name: "Org A", slug: "org-a" },
     });
     await prisma.organization.upsert({
       where: { id: ORG_B_ID },
       update: {},
-      create: { id: ORG_B_ID, name: "Org B" },
+      create: { id: ORG_B_ID, name: "Org B", slug: "org-b" },
     });
 
     await prisma.orgNote.create({
