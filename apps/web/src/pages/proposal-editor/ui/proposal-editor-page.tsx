@@ -2,8 +2,11 @@ import { useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { cn } from "@/shared/lib/utils";
 import { useProposal } from "@/entities/proposal/api";
+import { PROPOSAL_STATUS_META } from "@/entities/proposal/status";
 import type { Proposal } from "@/entities/proposal/model";
 import { ProposalEditor } from "@/features/proposal-editor/ui/editor";
 import { AutosaveIndicator } from "@/features/proposal-editor/ui/autosave-indicator";
@@ -11,6 +14,7 @@ import { useAutosave } from "@/features/proposal-editor/lib/use-autosave";
 import { useExportPdf } from "@/features/proposal-editor/lib/use-export-pdf";
 import { QuoteBuilder } from "@/features/quote-builder/ui/quote-builder";
 import { AiDraftBanner } from "@/features/generate-proposal/ui/ai-draft-banner";
+import { SendProposalActions } from "@/features/send-proposal/ui/send-proposal-actions";
 
 // Page éditeur de proposition (route /proposals/:id, 03-UI-SPEC §Proposal Editor page). Layout pleine
 // largeur (WideAppShell) : header sticky (Retour + titre borderless + indicateur autosave + Exporter
@@ -40,6 +44,7 @@ function LoadedEditor({ proposal, aiGenerated }: { proposal: Proposal; aiGenerat
   const autosave = useAutosave(proposal.id);
   const [title, setTitle] = useState(proposal.title);
   const { exportPdf, isExporting } = useExportPdf(proposal.id, title, autosave.flush);
+  const statusMeta = PROPOSAL_STATUS_META[proposal.status];
 
   // Le corps initial est lu UNE fois (ref) : on ne re-set jamais le content de Tiptap (Pitfall 2).
   const initialBody = useRef(proposal.bodyJson).current;
@@ -71,8 +76,15 @@ function LoadedEditor({ proposal, aiGenerated }: { proposal: Proposal; aiGenerat
           placeholder="Proposition sans titre"
           className="border-0 bg-transparent px-0 text-xl font-semibold tracking-tight text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
         />
+        <Badge className={cn(statusMeta.badge)}>{statusMeta.label}</Badge>
         <div className="ml-auto flex items-center gap-4">
           <AutosaveIndicator state={autosave.state} />
+          <SendProposalActions
+            proposalId={proposal.id}
+            status={proposal.status}
+            title={title}
+            flush={autosave.flush}
+          />
           <Button onClick={exportPdf} disabled={isExporting}>
             <Download className="mr-2 h-4 w-4" />
             {isExporting ? "Génération…" : "Exporter PDF"}
