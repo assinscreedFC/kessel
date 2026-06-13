@@ -7,6 +7,10 @@
   "types": "src/index.ts",
   "dependencies": {
     "@nestjs/common": "11.1.26",
-    "decimal.js": "10.6.0"
+    "@tiptap/html": "3.26.1",
+    "@tiptap/pm": "3.26.1",
+    "@tiptap/starter-kit": "3.26.1",
+    "decimal.js": "10.6.0",
+    "puppeteer": "25.1.0"
   }
 }
