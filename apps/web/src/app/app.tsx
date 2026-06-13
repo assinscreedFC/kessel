@@ -10,6 +10,8 @@ import { DatasetPage } from "@/pages/dataset/ui/dataset-page";
 import { ProposalEditorPage } from "@/pages/proposal-editor/ui/proposal-editor-page";
 import { TemplateEditorPage } from "@/pages/proposal-editor/ui/template-editor-page";
 import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-page";
+import { ProjectsPage } from "@/pages/projects/ui/projects-page";
+import { ProjectDetailPage } from "@/pages/project-detail/ui/project-detail-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -34,6 +36,8 @@ export function App() {
             <Route path="/dataset" element={<DatasetPage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects/:id" element={<ProjectDetailPage />} />
           </Route>
           {/* Éditeur pleine largeur (échappe au cap max-w-6xl) : proposition + template. */}
           <Route element={<WideAppShell />}>
