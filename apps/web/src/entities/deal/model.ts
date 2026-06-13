@@ -30,3 +30,16 @@ export const dealFormSchema = z.object({
 // distinct de l'OUTPUT (number validé). On expose les deux pour typer useForm<Input, ctx, Output>.
 export type DealFormInput = z.input<typeof dealFormSchema>;
 export type DealFormValues = z.output<typeof dealFormSchema>;
+
+// "Marquer comme perdu" (Phase 6, AI-01 critère 3) : raison OPTIONNELLE, bornée à 2000 caractères en
+// miroir du DTO serveur (UpdateDealDto.reason @MaxLength 2000, Plan 06-02). Une raison vide est absente
+// (undefined) — la discrétion est respectée, l'outcome LOST est enregistré avec reason null côté serveur.
+export const markLostFormSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .max(2000, "La raison ne doit pas dépasser 2000 caractères")
+    .optional(),
+});
+
+export type MarkLostFormValues = z.output<typeof markLostFormSchema>;

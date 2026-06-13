@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/shared/api/client";
 import { toast } from "@/shared/ui/sonner";
+import { OUTCOMES_KEY } from "@/entities/outcome/api";
 import type { Deal, DealFormValues, DealStatus } from "./model";
 
 // Couche data de l'entité Deal (couche `entities`). Hooks TanStack Query consommant /api/deals via le
@@ -50,6 +51,27 @@ export function useUpdateDeal(id: string, onSuccess?: () => void) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DEALS_KEY });
       toast.success("Deal mis à jour");
+      onSuccess?.();
+    },
+    onError: () => toast.error("Échec de l'enregistrement. Réessayez."),
+  });
+}
+
+// "Marquer comme perdu" (AI-01 critère 3) : RÉUTILISE le geste métier existant (transition de statut du
+// deal -> LOST via PATCH /deals/:id), PAS une saisie flywheel dédiée. Le serveur (Plan 06-02) enregistre
+// alors un ProposalOutcome(LOST) en effet de bord. La raison optionnelle vide est envoyée undefined.
+//
+// L'invalidation de OUTCOMES_KEY (["outcomes"]) est CLÉ : la vue dataset reflète immédiatement le
+// nouvel outcome LOST sans saisie dédiée (critère 3 — la boucle se ferme visiblement).
+export function useMarkDealLost(id: string, onSuccess?: () => void) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (reason?: string) =>
+      api.patch<Deal>(`/deals/${id}`, { status: "LOST", reason: reason || undefined }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DEALS_KEY });
+      queryClient.invalidateQueries({ queryKey: OUTCOMES_KEY });
+      toast.success("Deal marqué perdu");
       onSuccess?.();
     },
     onError: () => toast.error("Échec de l'enregistrement. Réessayez."),

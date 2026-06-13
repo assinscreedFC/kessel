@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Briefcase, Sparkles } from "lucide-react";
+import { Briefcase, MoreHorizontal, Sparkles, XCircle } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,7 +14,14 @@ import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 import { DealDialog } from "@/features/create-deal/ui/deal-dialog";
+import { MarkLostDialog } from "@/features/mark-deal-lost/ui/mark-lost-dialog";
 import {
   BriefDialog,
   type LockedDeal,
@@ -55,6 +62,12 @@ function isDealStatus(value: string | null): value is DealStatus {
   return value != null && (DEAL_STATUS_VALUES as string[]).includes(value);
 }
 
+// Un deal RÉSOLU (gagné ou perdu) n'expose pas l'action "Marquer comme perdu" : un deal gagné ne se
+// perd pas, un deal déjà perdu n'a pas à être re-marqué (l'outcome est déjà enregistré côté serveur).
+function isResolved(status: DealStatus): boolean {
+  return status === "WON" || status === "LOST";
+}
+
 export function DealsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,6 +82,8 @@ export function DealsPage() {
   const [editing, setEditing] = useState<Deal | null>(null);
   // Deal ancré du flux de génération IA (brief-dialog ouvert avec le deal verrouillé).
   const [briefDeal, setBriefDeal] = useState<LockedDeal | null>(null);
+  // Deal ciblé par l'action "Marquer comme perdu" (Dialog ouvert avec raison optionnelle).
+  const [losingDeal, setLosingDeal] = useState<Deal | null>(null);
 
   // Résolution contactId -> nom côté web (le DealDto ne porte pas le nom du contact ; on ne modifie
   // pas le contrat serveur Plan 02). Map mémoïsée sur les contacts chargés.
@@ -136,6 +151,7 @@ export function DealsPage() {
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Proposition</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -177,6 +193,33 @@ export function DealsPage() {
                         Nouvelle proposition depuis un brief
                       </Button>
                     </TableCell>
+                    <TableCell className="text-right">
+                      {/* Action par ligne : visible uniquement pour les deals NON résolus (un deal
+                          gagné ne se perd pas ; un deal déjà perdu n'est pas re-marqué). */}
+                      {!isResolved(deal.status) && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              aria-label="Actions du deal"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4 text-slate-500" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              destructive
+                              onSelect={() => setLosingDeal(deal)}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Marquer comme perdu
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -186,6 +229,17 @@ export function DealsPage() {
       </TableContainer>
 
       <DealDialog open={dialogOpen} onOpenChange={setDialogOpen} deal={editing} />
+
+      {/* "Marquer comme perdu" (AI-01 critère 3) : réutilise le geste deal->LOST (PATCH /deals/:id),
+          enregistre un ProposalOutcome(LOST) serveur et invalide ["outcomes"] -> le dataset reflète
+          immédiatement la perte (sans saisie dédiée). */}
+      <MarkLostDialog
+        open={losingDeal !== null}
+        onOpenChange={(open) => {
+          if (!open) setLosingDeal(null);
+        }}
+        deal={losingDeal}
+      />
 
       {/* Génération IA deal-ancrée : deal VERROUILLÉ (ligne statique, pas un Select). 503 -> on dirige
           vers la liste propositions où le chemin manuel reste proéminent (jamais d'écran blanc). */}
