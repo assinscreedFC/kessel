@@ -1,0 +1,6 @@
+# Override temporaire pour exposer Postgres au host (prisma migrate dev depuis l'host)
+# Utilisé uniquement en dev local — ne pas committer dans l'image de prod
+services:
+  postgres:
+    ports:
+      - "5433:5432"
