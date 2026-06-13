@@ -16,6 +16,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.8.0",
     "@prisma/client": "7.8.0",
+    "decimal.js": "10.6.0",
     "kysely": "0.29.2",
     "pg": "8.21.0"
   },
