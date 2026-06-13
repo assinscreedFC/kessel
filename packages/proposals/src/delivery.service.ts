@@ -4,6 +4,7 @@ import { PdfService } from "./pdf.service";
 import { SigningService } from "./signing.service";
 import { StorageService } from "./storage.service";
 import { grandTotal, lineTotal } from "./money";
+import { buildOutcomeContext } from "./outcome-context";
 import { generateShareToken, hashToken } from "./token";
 
 // DeliveryService — envoi (token), lecture publique par hash, PDF non signé public, tracking events
@@ -317,7 +318,20 @@ export class DeliveryService {
     })) as { type: string }[];
     const auditTrail = buildAuditTrail(signedAt, meta?.ip, priorEvents.map((e) => e.type));
 
-    // 5. UNE $transaction atomique : Proposal SIGNED + Signature + deal WON (+ event SIGNED).
+    // 4b. Dériver le SNAPSHOT de contexte de l'issue WON AVANT la transaction (buildOutcomeContext PUR,
+    //     aucune I/O). Les lignes + bodyJson sont chargés une fois ici (déjà lus côté renderPdfForSigning,
+    //     mais on les recharge pour figer le snapshot exactement au moment de la résolution). Flywheel
+    //     AI-01 : amount (grandTotal decimal exact) + comptes + longueur de corps — whitelist RGPD stricte.
+    const outcomeRow = (await basePrisma.proposal.findUnique({
+      where: { id: proposal.id },
+      include: PUBLIC_INCLUDE_LINES as never,
+    })) as ResolvedProposalRow | null;
+    const outcomeContext = buildOutcomeContext(
+      { bodyJson: outcomeRow?.bodyJson ?? null },
+      outcomeRow?.lines ?? [],
+    );
+
+    // 5. UNE $transaction atomique : Proposal SIGNED + Signature + deal WON + ProposalOutcome(WON).
     try {
       await basePrisma.$transaction(async (tx) => {
         await tx.proposal.update({
@@ -338,6 +352,17 @@ export class DeliveryService {
         await tx.deal.update({
           where: { id: proposal.dealId },
           data: { status: "WON" } as never,
+        });
+        // Hook WON (AI-01) — ATOMIQUE avec SIGNED + deal WON : l'issue gagnée est figée DANS la même
+        // transaction (jamais de fenêtre signé-sans-outcome). proposalId @unique = idempotence DB
+        // (belt-and-suspenders avec la garde status===SIGNED ci-dessus). context = snapshot figé.
+        await tx.proposalOutcome.create({
+          data: {
+            proposalId: proposal.id,
+            outcome: "WON",
+            decidedAt: signedAt,
+            context: outcomeContext as never,
+          } as never,
         });
         // Note : pas d'event "SIGNED" (ProposalEventType = SENT/OPENED/VIEWED uniquement, Plan 05-01).
         // La transition est tracée par Proposal.status=SIGNED + signedAt + le Signature record lui-même.

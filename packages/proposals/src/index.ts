@@ -3,6 +3,8 @@
 export const PROPOSALS_MODULE = { name: "proposals" } as const;
 export * from "./money";
 export * from "./outcome-context";
+// OutcomeService (hooks LOST + dataset forOrg, Plan 06-02) — re-export nommé explicite.
+export { OutcomeService } from "./outcome.service";
 export * from "./token";
 export * from "./pdf-template";
 export * from "./pdf.service";
