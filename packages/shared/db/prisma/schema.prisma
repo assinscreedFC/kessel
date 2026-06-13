@@ -40,6 +40,8 @@ model Organization {
   metadata  String? // colonne canonique Better Auth (JSON sérialisé, nullable)
   createdAt DateTime  @default(now())
   notes     OrgNote[]
+  contacts  Contact[]
+  deals     Deal[]
 
   @@map("organization")
 }
@@ -56,4 +58,52 @@ model OrgNote {
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+// === CRM minimal (Phase 2) ===
+// DealStatus : enum STABLE à 4 valeurs, ordre fixe. NE PAS ajouter de valeur — les phases
+// suivantes en dépendent (DELIV-04 -> WON à la signature Phase 5 ; AI-01 lit WON/LOST Phase 6).
+enum DealStatus {
+  LEAD
+  PROPOSAL_SENT
+  WON
+  LOST
+}
+
+// Contact : entité métier tenant-scoped (CRM-01). orgId FK -> Organization.id canonique.
+// organizationName est un texte libre (PAS une entité Organization séparée en v0).
+// Ajouté à SCOPED_MODELS (tenant-client.ts) + test d'isolation cross-tenant obligatoire.
+model Contact {
+  id               String   @id @default(uuid())
+  orgId            String // FK -> Organization.id == organization.id (Better Auth)
+  name             String
+  email            String
+  organizationName String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deals            Deal[]
+
+  @@index([orgId])
+}
+
+// Deal : opportunité rattachée à exactement un Contact (CRM-02). orgId FK -> Organization.id.
+// Deal.contact en onDelete: Restrict (PAS Cascade) : supprimer un contact ayant des deals liés
+// ÉCHOUE (surface l'erreur, pas de cascade silencieuse). amount Decimal nullable (devis chiffré
+// viendra des propositions). Ajouté à SCOPED_MODELS + test d'isolation cross-tenant.
+model Deal {
+  id        String     @id @default(uuid())
+  orgId     String
+  contactId String
+  title     String
+  status    DealStatus @default(LEAD)
+  amount    Decimal?   @db.Decimal(12, 2)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  @@index([orgId])
+  @@index([contactId])
+  @@index([orgId, status])
 }

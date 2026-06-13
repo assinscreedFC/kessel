@@ -19,7 +19,7 @@ import { basePrisma } from "./client";
 // Organization (mappée @@map("organization") sur la table canonique Better Auth) n'est PAS scopée
 // par orgId — c'est la table d'identité org elle-même. Les futurs modèles métier portant un orgId
 // FK vers organization.id (CRM, propositions...) s'ajoutent ici.
-const SCOPED_MODELS = new Set<string>(["OrgNote"]);
+const SCOPED_MODELS = new Set<string>(["OrgNote", "Contact", "Deal"]);
 
 // Opérations dont le filtrage passe par `where` (lecture / mise à jour / suppression / agrégats).
 const WHERE_SCOPED_OPERATIONS = new Set<string>([
