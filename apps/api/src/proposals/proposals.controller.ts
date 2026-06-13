@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  StreamableFile,
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
@@ -35,6 +36,22 @@ export class ProposalsController {
   @Get()
   async list(@Session() session: UserSession<typeof auth>): Promise<ProposalDto[]> {
     return this.proposals.listProposals(requireOrg(session));
+  }
+
+  // PROP-07 : export PDF. Déclaré AVANT :id pour que "/:id/pdf" ne soit pas capté par "/:id".
+  // Scoping forOrg via ProposalsService.renderPdf -> 404 si la proposition n'est pas dans l'org
+  // (T-3-pdf-iso : jamais de PDF cross-tenant). StreamableFile fixe Content-Type application/pdf
+  // + Content-Disposition attachment (NestJS natif, pas de @Res express).
+  @Get(":id/pdf")
+  async exportPdf(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+  ): Promise<StreamableFile> {
+    const buf = await this.proposals.renderPdf(requireOrg(session), id);
+    return new StreamableFile(buf, {
+      type: "application/pdf",
+      disposition: `attachment; filename="proposition-${id}.pdf"`,
+    });
   }
 
   @Get(":id")

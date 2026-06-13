@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { forOrg } from "@kessel/db";
+import { PdfService } from "./pdf.service";
 import type {
   CreateFromTemplateInput,
   CreateProposalInput,
@@ -130,6 +131,10 @@ const INCLUDE_LINES = { lines: { orderBy: { position: "asc" } } } as const;
 
 @Injectable()
 export class ProposalsService {
+  // @Inject explicite : esbuild/SWC émet design:paramtypes mais on garde le token DI explicite
+  // (cohérence avec les controllers ; robustesse au bundle).
+  constructor(@Inject(PdfService) private readonly pdf: PdfService) {}
+
   // === Proposals ===
 
   async listProposals(orgId: string): Promise<ProposalDto[]> {
@@ -146,6 +151,29 @@ export class ProposalsService {
       include: INCLUDE_LINES as never,
     });
     return row ? toProposalDto(row as unknown as ProposalRow) : null;
+  }
+
+  // PROP-07 : rend le PDF d'une proposition de l'org. Réutilise getProposal (scopé forOrg) -> 404
+  // si la proposition n'appartient pas à l'org (T-3-pdf-iso : jamais de PDF cross-tenant). Récupère
+  // le nom de l'org (table organization, par son id canonique) pour le header/footer, délègue au PdfService.
+  async renderPdf(orgId: string, id: string): Promise<Buffer> {
+    const proposal = await this.getProposal(orgId, id);
+    if (!proposal) {
+      throw new NotFoundException("Proposition introuvable dans l'organisation.");
+    }
+    // Organization n'est PAS dans SCOPED_MODELS (table d'identité) : findUnique par id canonique
+    // (= orgId) la renvoie en pass-through. orgId vient de la session -> l'org existe toujours.
+    const org = (await forOrg(orgId).organization.findUnique({
+      where: { id: orgId },
+    })) as { name: string } | null;
+
+    return this.pdf.renderProposalPdf({
+      title: proposal.title,
+      bodyJson: proposal.bodyJson,
+      lines: proposal.lines,
+      grandTotal: proposal.grandTotal,
+      org: { name: org?.name ?? "" },
+    });
   }
 
   async createProposal(orgId: string, input: CreateProposalInput): Promise<ProposalDto> {

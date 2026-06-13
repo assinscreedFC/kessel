@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
-import { ProposalsService } from "@kessel/proposals";
+import { PdfService, ProposalsService } from "@kessel/proposals";
 import { HealthController } from "./health/health.controller";
 import { SettingsController } from "./settings/settings.controller";
 import { ContactsController } from "./contacts/contacts.controller";
@@ -28,6 +28,6 @@ import { PricingController } from "./pricing/pricing.controller";
     TemplatesController,
     PricingController,
   ],
-  providers: [CrmService, ProposalsService],
+  providers: [CrmService, PdfService, ProposalsService],
 })
 export class AppModule {}
