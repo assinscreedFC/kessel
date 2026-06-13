@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
@@ -12,6 +13,7 @@ import { ProposalsController } from "./proposals/proposals.controller";
 import { AiProposalsController } from "./proposals/ai-proposals.controller";
 import { TemplatesController } from "./proposals/templates.controller";
 import { PricingController } from "./pricing/pricing.controller";
+import { PublicProposalsController } from "./public/public-proposals.controller";
 
 // App shell NestJS (FOUND-02/03). AuthModule.forRoot monte l'instance Better Auth (source
 // canonique org) + installe un AuthGuard GLOBAL : toutes les routes sont protégées par défaut.
@@ -19,8 +21,14 @@ import { PricingController } from "./pricing/pricing.controller";
 //
 // CRM (Phase 2) : ContactsController + DealsController (api/contacts, api/deals) injectent CrmService
 // (@kessel/crm), enregistré comme provider pour que le DI NestJS le résolve.
+// ThrottlerModule.forRoot : rate-limit in-memory (mono-instance self-host v0, RESEARCH A1). Le
+// ThrottlerGuard est appliqué de façon CIBLÉE via @UseGuards sur le contrôleur public uniquement
+// (pas en APP_GUARD global) -> les routes authentifiées du dashboard ne sont pas throttlées.
 @Module({
-  imports: [AuthModule.forRoot({ auth })],
+  imports: [
+    AuthModule.forRoot({ auth }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+  ],
   controllers: [
     HealthController,
     SettingsController,
@@ -30,6 +38,7 @@ import { PricingController } from "./pricing/pricing.controller";
     AiProposalsController,
     TemplatesController,
     PricingController,
+    PublicProposalsController,
   ],
   // PROPOSAL_GENERATOR (token DI Symbol) bindé à l'impl Anthropic en prod. En test e2e, on l'override
   // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).
