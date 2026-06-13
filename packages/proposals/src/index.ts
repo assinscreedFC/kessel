@@ -1,3 +1,4 @@
-// @kessel/proposals — SEUL point d'export public du domaine proposals.
-// Frontière posée (FOUND-05) — aucune feature en Phase 1.
+// @kessel/proposals — domaine propositions & tarifs (PROP-01/02/03/07).
+// money.ts (decimal.js) est posé en Plan 03-01 ; ProposalsService + PdfService viennent Plans 02/03.
 export const PROPOSALS_MODULE = { name: "proposals" } as const;
+export * from "./money";
