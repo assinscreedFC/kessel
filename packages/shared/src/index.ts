@@ -9,3 +9,6 @@ export * from "./contracts/proposals";
 
 // Liste d'extensions Tiptap PARTAGÉE éditeur(web)/generateHTML(serveur) — framework-agnostique (React-free).
 export * from "./tiptap-extensions";
+
+// Contrat de génération IA (Phase 4) : forme de la requête web (brief/dealId/templateId), framework-free.
+export * from "./contracts/ai";

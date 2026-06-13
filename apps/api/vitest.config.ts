@@ -22,6 +22,7 @@ export default defineConfig({
       "@kessel/db": resolve(repoRoot, "packages/shared/db/src/index.ts"),
       "@kessel/crm": resolve(repoRoot, "packages/crm/src/index.ts"),
       "@kessel/proposals": resolve(repoRoot, "packages/proposals/src/index.ts"),
+      "@kessel/ai": resolve(repoRoot, "packages/ai/src/index.ts"),
       "@kessel/shared": resolve(repoRoot, "packages/shared/src/index.ts"),
     },
   },
