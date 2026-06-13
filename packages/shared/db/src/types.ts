@@ -28,6 +28,12 @@ export const OutcomeKind = {
     LOST: "LOST"
 } as const;
 export type OutcomeKind = (typeof OutcomeKind)[keyof typeof OutcomeKind];
+export const ProjectStatus = {
+    ACTIVE: "ACTIVE",
+    COMPLETED: "COMPLETED",
+    CANCELLED: "CANCELLED"
+} as const;
+export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
 export type Contact = {
     id: string;
     orgId: string;
@@ -125,16 +131,38 @@ export type Signature = {
     signedPdfKey: string;
     auditTrail: unknown | null;
 };
+export type Project = {
+    id: string;
+    orgId: string;
+    dealId: string;
+    proposalId: string;
+    title: string;
+    status: Generated<ProjectStatus>;
+    budgetSnapshot: unknown;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
+export type Task = {
+    id: string;
+    projectId: string;
+    title: string;
+    done: Generated<boolean>;
+    position: number;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
 export type DB = {
     Contact: Contact;
     Deal: Deal;
     organization: Organization;
     OrgNote: OrgNote;
     PricingItem: PricingItem;
+    Project: Project;
     Proposal: Proposal;
     ProposalEvent: ProposalEvent;
     ProposalOutcome: ProposalOutcome;
     ProposalTemplate: ProposalTemplate;
     QuoteLine: QuoteLine;
     Signature: Signature;
+    Task: Task;
 };
