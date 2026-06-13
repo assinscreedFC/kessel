@@ -6,3 +6,4 @@
 
 export * from "./proposal-generator";
 export * from "./fake-proposal-generator";
+export * from "./prompt";
