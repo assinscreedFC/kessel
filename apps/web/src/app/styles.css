@@ -1,0 +1,3 @@
+/* Tailwind v4 — un seul import suffit (pas de @tailwind base/components/utilities).
+   Le plugin @tailwindcss/vite scanne le source et génère l'utilitaire. */
+@import "tailwindcss";
