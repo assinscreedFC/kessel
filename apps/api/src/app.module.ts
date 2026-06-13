@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
+import { envValidationSchema } from "./config/env.validation";
 import { CrmService } from "@kessel/crm";
 import {
   DeliveryService,
@@ -34,6 +36,11 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
 // (pas en APP_GUARD global) -> les routes authentifiées du dashboard ne sont pas throttlées.
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: { abortEarly: true },
+    }),
     AuthModule.forRoot({ auth }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
   ],
