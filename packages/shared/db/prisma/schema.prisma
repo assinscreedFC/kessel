@@ -45,6 +45,11 @@ model Organization {
   proposals         Proposal[]
   proposalTemplates ProposalTemplate[]
   pricingItems      PricingItem[]
+  // v1.1 — relations inverses des 4 modèles SCOPED_MODELS orgId-direct
+  projects          Project[]
+  payments          Payment[]
+  apiKeys           ApiKey[]
+  webhookEndpoints  WebhookEndpoint[]
 
   @@map("organization")
 }
@@ -86,6 +91,8 @@ model Contact {
   updatedAt        DateTime @updatedAt
   org              Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   deals            Deal[]
+  // v1.1 — relation inverse PortalSession[] (scopée via parent Contact)
+  portalSessions   PortalSession[]
 
   @@index([orgId])
 }
@@ -106,6 +113,8 @@ model Deal {
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Restrict)
   proposals Proposal[]
+  // v1.1 — relation inverse Project[]
+  projects  Project[]
 
   @@index([orgId])
   @@index([contactId])
@@ -156,6 +165,8 @@ model Proposal {
   events    ProposalEvent[]
   signatures Signature[]
   outcome   ProposalOutcome? // issue structurée 1-0/1 (AI-01, Phase 6) — relation inverse
+  // v1.1 — relation inverse Project? (@unique sur proposalId garantit 0..1)
+  project   Project?
 
   @@index([orgId])
   @@index([dealId])
@@ -273,4 +284,174 @@ model ProposalOutcome {
   proposal   Proposal    @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
   @@index([proposalId])
+}
+
+// === Projets (Phase 2, PROJ-01/02/03) ===
+// ProjectStatus : ordre FIXE ACTIVE -> COMPLETED -> CANCELLED. Transitions pilotées côté service.
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// Project : entité centrale du milestone v1.1. orgId FK -> Organization.id (SCOPED_MODELS v1.1).
+// proposalId @unique = idempotence PROJ-01 : une seule conversion proposition → projet possible.
+// budgetSnapshot Json JSONB immuable : snapshot du total devis signé à la création (PROJ-02).
+// dealId @onDelete:Restrict — supprimer un Deal ayant un Project lié ÉCHOUE (surface l'erreur).
+// proposalId @onDelete:Restrict — même logique (le devis signé ne doit pas disparaître silencieusement).
+model Project {
+  id             String        @id @default(uuid())
+  orgId          String
+  dealId         String
+  proposalId     String        @unique // idempotence PROJ-01 : 1 projet par proposition signée
+  title          String
+  status         ProjectStatus @default(ACTIVE)
+  budgetSnapshot Json // snapshot JSONB immuable du total devis signé (PROJ-02)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  org            Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal           Deal          @relation(fields: [dealId], references: [id], onDelete: Restrict)
+  proposal       Proposal      @relation(fields: [proposalId], references: [id], onDelete: Restrict)
+  tasks          Task[]
+  payments       Payment[]
+
+  @@index([orgId])
+  @@index([dealId])
+}
+
+// === Paiements Stripe (Phase 3, PAY-04) ===
+// PaymentKind : acompte (DEPOSIT) ou solde (BALANCE). Ordre fixe.
+enum PaymentKind {
+  DEPOSIT
+  BALANCE
+}
+
+// PaymentStatus : cycle de vie du payment intent Stripe. Ordre fixe.
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+// Payment : table de mapping stripe_payment_intents (PAY-04, décision STATE.md).
+// orgId FK -> Organization.id (SCOPED_MODELS v1.1 — isolation cross-tenant prouvée project-isolation.spec.ts).
+// amountCents Int — stocké en centimes (decimal.js à la lecture/écriture, jamais Float).
+// stripePaymentIntentId @unique : lookup Stripe → Payment O(1) sans scan.
+// project @onDelete:Restrict — un payment lié à un projet vivant, ne doit pas orpheliner.
+model Payment {
+  id                    String        @id @default(uuid())
+  orgId                 String
+  projectId             String
+  stripePaymentIntentId String        @unique
+  kind                  PaymentKind   @default(DEPOSIT)
+  status                PaymentStatus @default(PENDING)
+  amountCents           Int // centimes — decimal.js à l'I/O (NEVER Float)
+  currency              String        @default("EUR")
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  org                   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project               Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([stripePaymentIntentId])
+}
+
+// === API Keys (Phase 5, API-01) ===
+// ApiKey : format `ksl_live_…`, stockée hashée SHA-256 (jamais la clé brute — T-5-apikey).
+// orgId FK -> Organization.id (SCOPED_MODELS v1.1).
+// keyHash @unique — lookup par hash O(1) ; prefix affiché pour identification côté UI (8 chars).
+// revokedAt nullable — révocation douce (pas de DELETE), auditable.
+model ApiKey {
+  id        String       @id @default(uuid())
+  orgId     String
+  name      String
+  keyHash   String       @unique // SHA-256 hex — jamais la clé brute (T-5-apikey)
+  prefix    String // "ksl_live_" + 8 chars (affiché pour identification)
+  revokedAt DateTime?
+  createdAt DateTime     @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// === Webhooks sortants (Phase 5, API-03/05) ===
+// WebhookEndpoint : endpoint enregistré par l'org (SCOPED_MODELS v1.1, orgId direct).
+// secret HMAC-SHA256 signing secret (à chiffrer côté application avant persistence).
+// events String[] — liste des event types souscrits (ex. ["proposal.signed", "payment.paid"]).
+// deliveries[] : relation inverse vers WebhookDelivery (scopée via parent, hors SCOPED_MODELS).
+model WebhookEndpoint {
+  id         String            @id @default(uuid())
+  orgId      String
+  url        String
+  secret     String // HMAC-SHA256 signing secret (chiffré avant persistence — T-5-webhook)
+  events     String[] // liste des event types souscrits
+  active     Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  org        Organization      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([orgId])
+}
+
+// === Tâches projet (Phase 2, PROJ-03/05) — scopées via parent ===
+// Task : PAS de colonne orgId — scopée via projectId → Project.orgId (hors SCOPED_MODELS).
+// L'ajouter dans SCOPED_MODELS injecterait un orgId inexistant et casserait les requêtes (Pitfall 1).
+// L'isolation cross-tenant est prouvée via l'inaccessibilité du parent Project (project-isolation.spec.ts).
+model Task {
+  id        String   @id @default(uuid())
+  projectId String
+  title     String
+  done      Boolean  @default(false)
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+// DeliveryStatus : cycle de vie d'une livraison webhook. Ordre fixe.
+enum DeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+// WebhookDelivery : trace des livraisons webhook (API-05) — scopée via parent WebhookEndpoint.
+// PAS de colonne orgId (hors SCOPED_MODELS) : isolation cross-tenant prouvée via parent orgId-scopé.
+// responseCode nullable — null si pas encore de réponse HTTP (status PENDING).
+// deliveredAt nullable — timestampé à la livraison réussie.
+model WebhookDelivery {
+  id                String          @id @default(uuid())
+  webhookEndpointId String
+  event             String // ex. "proposal.signed", "payment.paid"
+  payload           Json
+  status            DeliveryStatus  @default(PENDING)
+  responseCode      Int?
+  attemptCount      Int             @default(0)
+  deliveredAt       DateTime?
+  createdAt         DateTime        @default(now())
+  endpoint          WebhookEndpoint @relation(fields: [webhookEndpointId], references: [id], onDelete: Cascade)
+
+  @@index([webhookEndpointId])
+}
+
+// === Portail client (Phase 4, PORT-01) — scopée via parent ===
+// PortalSession : magic link session pour le portail client (apps/portal/).
+// PAS de colonne orgId (hors SCOPED_MODELS) : scopée via contactId → Contact.orgId (Pitfall 1).
+// tokenHash @unique (SHA-256 hex du magic link token, randomBytes(32)) — jamais le token brut.
+// expiresAt : TTL du magic link (ex. +24h) ; usedAt : one-time use (nullable jusqu'à utilisation).
+// Clients n'ont JAMAIS de compte Better Auth — isolation prouvée via parent Contact orgId-scopé.
+model PortalSession {
+  id        String    @id @default(uuid())
+  contactId String
+  tokenHash String    @unique // SHA-256 hex du magic link token (randomBytes(32)) — jamais le token brut
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
 }
