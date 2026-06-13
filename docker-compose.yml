@@ -44,6 +44,17 @@ services:
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
       REDIS_URL: ${REDIS_URL}
       PORT: 3000
+      # MinIO (stockage du PDF signé, DELIV-03) — endpoint = nom du service compose, réseau interne.
+      # ACCESS/SECRET via .env (= ROOT_USER/PASSWORD ou clés dédiées) ; jamais hardcodés (T-5-secret-cfg).
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      # Signature PAdES (DELIV-03) — CHEMIN du .p12 (pas un secret) + passphrase (secret, jamais loggée).
+      SIGNING_P12_PATH: ${SIGNING_P12_PATH}
+      SIGNING_P12_PASSPHRASE: ${SIGNING_P12_PASSPHRASE}
     depends_on:
       postgres:
         condition: service_healthy
