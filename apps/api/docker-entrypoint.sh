@@ -37,7 +37,7 @@ cd /app
 # Borne a 8 tentatives (les 7 tables auth convergent en <=5 passes en pratique).
 migrate_ok=0
 for attempt in 1 2 3 4 5 6 7 8; do
-  if node dist/apps/api/migrate.js; then
+  if node apps/api/dist/migrate.js; then
     echo "[entrypoint] better-auth migrate convergee (tentative $attempt)"
     migrate_ok=1
     break
@@ -50,4 +50,4 @@ if [ "$migrate_ok" != "1" ]; then
 fi
 
 echo "[entrypoint] 3/3 start NestJS api"
-exec node dist/apps/api/main.js
+exec node apps/api/dist/main.js

@@ -24,24 +24,19 @@ RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" \
   && node apps/api/esbuild.mjs
 
 # ---- Stage runtime ----
+# On copie tout l'arbre /app du stage build : node_modules racine + .pnpm store + les
+# node_modules par-package (symlinks pnpm). Le bundle apps/api/dist/ résout ses externes en
+# remontant apps/api/node_modules -> node_modules racine. C'est l'arbre pnpm intact qui garantit
+# la résolution (notamment le client Prisma généré, à côté de @prisma/client, jamais hoisté).
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN corepack enable
 
-# node_modules complet (deps externes du bundle : NestJS, better-auth, pg, client Prisma généré).
-COPY --from=build /app/node_modules ./node_modules
-# Bundle api + sourcemaps.
-COPY --from=build /app/dist ./dist
-# Schéma Prisma seul (pour `prisma db push --url` au boot). prisma.config.ts est VOLONTAIREMENT
-# absent du runtime : il importe "prisma/config" (non résolvable hors node_modules local du package)
-# et n'est pas requis quand l'URL est passée explicitement via --url. Le client généré vit dans
-# node_modules/.pnpm (copié plus haut) — résolu par l'adapter au runtime.
-COPY --from=build /app/packages/shared/db/prisma/schema.prisma ./packages/shared/db/prisma/schema.prisma
-COPY --from=build /app/packages/shared/db/package.json ./packages/shared/db/package.json
-# Entrypoint (migrations ordonnées + start).
-COPY --from=build /app/apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
+# Tout l'espace de travail buildé (sources TS incluses : poids non critique en self-host ; garantit
+# la résolution pnpm + le client Prisma généré + apps/api/dist + l'entrypoint).
+COPY --from=build /app /app
+RUN chmod +x apps/api/docker-entrypoint.sh
 
 EXPOSE 3000
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["apps/api/docker-entrypoint.sh"]
