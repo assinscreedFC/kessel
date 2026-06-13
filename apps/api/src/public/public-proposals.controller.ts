@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -7,12 +8,19 @@ import {
   Param,
   Post,
   Req,
+  ServiceUnavailableException,
   StreamableFile,
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
-import { DeliveryService, type PublicProposalDto } from "@kessel/proposals";
+import {
+  DeliveryService,
+  SigningCertNotConfiguredError,
+  type PublicProposalDto,
+  type SignProposalResult,
+} from "@kessel/proposals";
+import { SignProposalDto } from "./dto/sign-proposal.dto";
 
 // Module PUBLIC token-gated (DELIV-01/02) — surface isolée du dashboard authentifié.
 //
@@ -60,6 +68,49 @@ export class PublicProposalsController {
       type: "application/pdf",
       disposition: 'attachment; filename="proposition.pdf"',
     });
+  }
+
+  // GET :token/signed-pdf — re-download PUBLIC du PDF SIGNÉ (client cookie-less). Résolu STRICT par
+  // hash + garde status SIGNED (DeliveryService.getSignedPdfByToken). null -> 404 (token bidon OU pas
+  // encore signé : 404 indifférencié, anti-énumération). Déclaré AVANT @Get(":token"). Streamé MinIO.
+  @AllowAnonymous()
+  @Get(":token/signed-pdf")
+  async signedPdf(@Param("token") token: string): Promise<StreamableFile> {
+    const buf = await this.delivery.getSignedPdfByToken(token);
+    if (!buf) {
+      throw new NotFoundException();
+    }
+    return new StreamableFile(buf, {
+      type: "application/pdf",
+      disposition: 'attachment; filename="proposition-signee.pdf"',
+    });
+  }
+
+  // POST :token/sign — SIGNATURE en ligne (DELIV-03/04). Throttle STRICT 5/min (sign = Chromium+crypto
+  // coûteux, T-5-rate-sign). DTO validé (signerName/email/consent === true). Génère -> signe (PAdES
+  // cert réel) -> stocke MinIO -> $transaction (SIGNED + Signature + deal WON), idempotent. Cert
+  // absent -> SigningCertNotConfiguredError -> 503 (pas 500/stack). Token invalide -> 404.
+  @AllowAnonymous()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post(":token/sign")
+  async sign(
+    @Param("token") token: string,
+    @Body() dto: SignProposalDto,
+    @Req() req: RequestWithIp,
+  ): Promise<SignProposalResult> {
+    try {
+      return await this.delivery.signProposal(
+        token,
+        { signerName: dto.signerName, signerEmail: dto.signerEmail },
+        { ip: clientIp(req) },
+      );
+    } catch (err: unknown) {
+      // Cert manquant -> 503 gracieux (configuration serveur), JAMAIS un 500/stack trace ENOENT.
+      if (err instanceof SigningCertNotConfiguredError) {
+        throw new ServiceUnavailableException("La signature est temporairement indisponible.");
+      }
+      throw err;
+    }
   }
 
   // GET :token — rendu lecture seule public (corps + devis + total). Enregistre OPENED au 1er

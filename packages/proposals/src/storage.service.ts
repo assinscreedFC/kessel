@@ -32,6 +32,11 @@ export class StorageService implements OnModuleInit {
   }
 
   // makeBucket idempotent au boot. BucketAlreadyOwnedByYou / BucketAlreadyExists -> no-op.
+  //
+  // TOLÉRANT AU BOOT : si MinIO est injoignable au démarrage (ECONNREFUSED en test/CI/avant que le
+  // conteneur soit prêt), on NE crashe PAS l'app — le bucket sera (re)tenté implicitement au 1er put,
+  // qui surfacera alors une vraie erreur de config si MinIO reste indisponible. Cela évite de coupler
+  // le boot de l'API à la disponibilité de MinIO (l'API doit servir le dashboard même sans signature).
   async onModuleInit(): Promise<void> {
     try {
       const exists = await this.client.bucketExists(BUCKET);
@@ -43,7 +48,9 @@ export class StorageService implements OnModuleInit {
       if (code === "BucketAlreadyOwnedByYou" || code === "BucketAlreadyExists") {
         return;
       }
-      throw err;
+      // Connexion impossible au boot -> non fatal (cf. ci-dessus). Tout autre échec d'I/O réelle
+      // (auth, permissions) remontera au 1er putSignedPdf/getSignedPdf.
+      return;
     }
   }
 

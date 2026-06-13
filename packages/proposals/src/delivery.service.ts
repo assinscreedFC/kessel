@@ -1,6 +1,8 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { basePrisma, forOrg } from "@kessel/db";
 import { PdfService } from "./pdf.service";
+import { SigningService } from "./signing.service";
+import { StorageService } from "./storage.service";
 import { grandTotal, lineTotal } from "./money";
 import { generateShareToken, hashToken } from "./token";
 
@@ -73,11 +75,30 @@ export interface SendProposalResult {
   status: string;
 }
 
+// Entrées de signature (DTO public validé au boundary + identité signataire).
+export interface SignProposalInput {
+  signerName: string;
+  signerEmail: string;
+}
+
+// Résultat d'une signature : confirmation minimale renvoyée au client public (pas de PII serveur,
+// pas de clé MinIO ni d'orgId/dealId bruts). `alreadySigned` distingue le cas idempotent.
+export interface SignProposalResult {
+  signerName: string;
+  signedAt: string;
+  status: string;
+  alreadySigned: boolean;
+}
+
 const PUBLIC_INCLUDE_LINES = { lines: { orderBy: { position: "asc" } } } as const;
 
 @Injectable()
 export class DeliveryService {
-  constructor(@Inject(PdfService) private readonly pdf: PdfService) {}
+  constructor(
+    @Inject(PdfService) private readonly pdf: PdfService,
+    @Inject(SigningService) private readonly signing: SigningService,
+    @Inject(StorageService) private readonly storage: StorageService,
+  ) {}
 
   // === Envoi (DELIV-01) — authentifié, forOrg ===
 
@@ -239,6 +260,175 @@ export class DeliveryService {
       data: { proposalId: row.id, type, meta: metaJson as never } as never,
     });
   }
+
+  // === Signature (DELIV-03/04) — public token-gated, atomique, idempotent ===
+
+  // signProposal : génère le PDF (PdfService) -> signe en PAdES (SigningService, cert via env) ->
+  // stocke sur MinIO (StorageService) AVANT la transaction ; puis UNE $transaction atomique :
+  // Proposal SIGNED + signedAt + Signature record (auditTrail RGPD-borné) + deal WON.
+  //
+  // IDEMPOTENCE (T-5-idem) : garde `status === "SIGNED"` AVANT toute génération (no-op propre, ne mute
+  // pas le deal, ne crée pas de 2e Signature). Le double-POST concurrent est intercepté DANS la
+  // transaction par `where: { status: { not: "SIGNED" } }` (P2025 -> no-op).
+  //
+  // SÉCURITÉ : résolution par hash (jamais forOrg/findMany). Cert absent -> SigningCertNotConfiguredError
+  // propagée (le controller -> 503). L'auditTrail ne contient QUE des champs whitelistés/tronqués.
+  async signProposal(
+    token: string,
+    input: SignProposalInput,
+    meta?: { ip?: string },
+  ): Promise<SignProposalResult> {
+    const proposal = (await basePrisma.proposal.findUnique({
+      where: { shareTokenHash: hashToken(token) },
+    })) as { id: string; orgId: string; dealId: string; status: string; signedAt: Date | null } | null;
+    if (!proposal) {
+      throw new NotFoundException();
+    }
+
+    // IDEMPOTENT : déjà signée -> no-op propre (pas de re-génération, pas de 2e mutation).
+    if (proposal.status === "SIGNED") {
+      return {
+        signerName: input.signerName,
+        signedAt: (proposal.signedAt ?? new Date()).toISOString(),
+        status: "SIGNED",
+        alreadySigned: true,
+      };
+    }
+
+    // 1. Générer le PDF À SIGNER (PdfService, données résolues par hash en interne — jamais exposées).
+    const pdf = await this.renderPdfForSigning(proposal.id, proposal.orgId);
+
+    // 2. Signer en PAdES (cert via env, SigningService). Cert absent -> erreur typée propagée.
+    const { signedPdf, documentHash } = await this.signing.signWithConfiguredCert(pdf, {
+      name: input.signerName,
+      email: input.signerEmail,
+    });
+
+    // 3. Stocker le PDF signé sur MinIO AVANT la transaction (I/O externe hors $transaction Postgres).
+    const signedPdfKey = await this.storage.putSignedPdf(proposal.id, signedPdf);
+
+    // 4. auditTrail RGPD-borné : whitelist STRICTE (champs explicites, JAMAIS de spread d'un objet
+    //    request). signedAt + ip tronquée /24 (ou null) + types d'event observés. Pas d'IP complète,
+    //    pas d'User-Agent, pas de PII (miroir de ProposalEvent.meta).
+    const signedAt = new Date();
+    const priorEvents = (await basePrisma.proposalEvent.findMany({
+      where: { proposalId: proposal.id },
+      select: { type: true },
+    })) as { type: string }[];
+    const auditTrail = buildAuditTrail(signedAt, meta?.ip, priorEvents.map((e) => e.type));
+
+    // 5. UNE $transaction atomique : Proposal SIGNED + Signature + deal WON (+ event SIGNED).
+    try {
+      await basePrisma.$transaction(async (tx) => {
+        await tx.proposal.update({
+          // garde concurrente : un 2e sign simultané touche 0 ligne -> P2025 -> no-op (catch).
+          where: { id: proposal.id, status: { not: "SIGNED" } } as never,
+          data: { status: "SIGNED", signedAt } as never,
+        });
+        await tx.signature.create({
+          data: {
+            proposalId: proposal.id,
+            signerName: input.signerName,
+            signerEmail: input.signerEmail,
+            documentHash,
+            signedPdfKey,
+            auditTrail: auditTrail as never,
+          } as never,
+        });
+        await tx.deal.update({
+          where: { id: proposal.dealId },
+          data: { status: "WON" } as never,
+        });
+        // Note : pas d'event "SIGNED" (ProposalEventType = SENT/OPENED/VIEWED uniquement, Plan 05-01).
+        // La transition est tracée par Proposal.status=SIGNED + signedAt + le Signature record lui-même.
+      });
+    } catch (err: unknown) {
+      // P2025 (Record not found) = la garde `status not SIGNED` a touché 0 ligne : une signature
+      // concurrente a gagné la course -> no-op idempotent (pas une erreur côté client).
+      if ((err as { code?: string })?.code === "P2025") {
+        const current = (await basePrisma.proposal.findUnique({
+          where: { id: proposal.id },
+        })) as { signedAt: Date | null } | null;
+        return {
+          signerName: input.signerName,
+          signedAt: (current?.signedAt ?? signedAt).toISOString(),
+          status: "SIGNED",
+          alreadySigned: true,
+        };
+      }
+      throw err;
+    }
+
+    return {
+      signerName: input.signerName,
+      signedAt: signedAt.toISOString(),
+      status: "SIGNED",
+      alreadySigned: false,
+    };
+  }
+
+  // renderPdfForSigning : génère le PDF d'une proposition résolue (par id + orgId déjà connus en
+  // interne lors du sign). Réutilise PdfService (Phase 3) — même rendu que le PDF non signé.
+  private async renderPdfForSigning(proposalId: string, orgId: string): Promise<Buffer> {
+    const row = (await basePrisma.proposal.findUnique({
+      where: { id: proposalId },
+      include: PUBLIC_INCLUDE_LINES as never,
+    })) as ResolvedProposalRow | null;
+    if (!row) {
+      throw new NotFoundException();
+    }
+    const lines = [...row.lines]
+      .sort((a, b) => a.position - b.position)
+      .map((l) => {
+        const quantity = l.quantity.toString();
+        const unitPrice = l.unitPrice.toString();
+        return {
+          id: l.id,
+          description: l.description,
+          quantity,
+          unitPrice,
+          lineTotal: lineTotal(quantity, unitPrice),
+          position: l.position,
+        };
+      });
+    const org = (await basePrisma.organization.findUnique({
+      where: { id: orgId },
+    })) as { name: string } | null;
+    return this.pdf.renderProposalPdf({
+      title: row.title,
+      bodyJson: row.bodyJson,
+      lines,
+      grandTotal: grandTotal(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice }))),
+      org: { name: org?.name ?? "" },
+    });
+  }
+
+  // getSignedPdf : re-download AUTHENTIFIÉ forOrg (dashboard opérateur). 404 cross-org (la proposition
+  // d'une autre org est invisible sous forOrg) ; 404 si pas encore signée. Lit Signature.signedPdfKey
+  // via la Proposal forOrg-scopée puis StorageService.getSignedPdf.
+  async getSignedPdf(orgId: string, id: string): Promise<Buffer | null> {
+    const proposal = (await forOrg(orgId).proposal.findUnique({
+      where: { id },
+      include: { signatures: { orderBy: { signedAt: "desc" }, take: 1 } } as never,
+    })) as { status: string; signatures: { signedPdfKey: string }[] } | null;
+    if (!proposal || proposal.status !== "SIGNED" || proposal.signatures.length === 0) {
+      return null;
+    }
+    return this.storage.getSignedPdf(proposal.signatures[0].signedPdfKey);
+  }
+
+  // getSignedPdfByToken : re-download PUBLIC (client cookie-less). Résolu par hash, garde status
+  // SIGNED (sinon null -> 404). JAMAIS forOrg, JAMAIS findMany.
+  async getSignedPdfByToken(token: string): Promise<Buffer | null> {
+    const proposal = (await basePrisma.proposal.findUnique({
+      where: { shareTokenHash: hashToken(token) },
+      include: { signatures: { orderBy: { signedAt: "desc" }, take: 1 } } as never,
+    })) as { status: string; signatures: { signedPdfKey: string }[] } | null;
+    if (!proposal || proposal.status !== "SIGNED" || proposal.signatures.length === 0) {
+      return null;
+    }
+    return this.storage.getSignedPdf(proposal.signatures[0].signedPdfKey);
+  }
 }
 
 // Tronque une IPv4 à son /24 (x.y.z.0) — minimisation RGPD (T-5-privacy). IPv6 ou format inconnu ->
@@ -249,4 +439,29 @@ function buildEventMeta(meta?: { ip?: string }): { ip: string } | null {
   const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
   if (!v4) return null;
   return { ip: `${v4[1]}.${v4[2]}.${v4[3]}.0` };
+}
+
+// Tronque une IPv4 à son /24, ou null (IPv6/format inconnu/absente). Minimisation RGPD.
+function truncateIp(ip?: string): string | null {
+  const trimmed = ip?.trim();
+  if (!trimmed) return null;
+  const v4 = trimmed.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/);
+  if (!v4) return null;
+  return `${v4[1]}.${v4[2]}.${v4[3]}.0`;
+}
+
+// auditTrail (Signature.auditTrail) RGPD-borné : whitelist STRICTE de champs explicites — JAMAIS de
+// spread d'un objet request, JAMAIS d'IP complète/User-Agent/PII. Snapshot borné (miroir de la règle
+// ProposalEvent.meta du Plan 05-01).
+function buildAuditTrail(
+  signedAt: Date,
+  ip: string | undefined,
+  eventTypes: string[],
+): { signedAt: string; ipTruncated: string | null; eventTypes: string[] } {
+  return {
+    signedAt: signedAt.toISOString(),
+    ipTruncated: truncateIp(ip),
+    // Types d'event observés (dédupliqués) — pas de timestamps/PII, juste la liste des types.
+    eventTypes: [...new Set(eventTypes)],
+  };
 }

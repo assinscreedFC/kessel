@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Inject,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -57,6 +58,24 @@ export class ProposalsController {
     return new StreamableFile(buf, {
       type: "application/pdf",
       disposition: `attachment; filename="proposition-${id}.pdf"`,
+    });
+  }
+
+  // DELIV-03 : re-download du PDF SIGNÉ depuis le dashboard (opérateur). Déclaré AVANT :id. Scoping
+  // forOrg via DeliveryService.getSignedPdf -> 404 cross-org OU si pas encore signée (T-5-storage :
+  // jamais de PDF signé cross-tenant, pas de presigned public). StreamableFile application/pdf.
+  @Get(":id/signed-pdf")
+  async exportSignedPdf(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+  ): Promise<StreamableFile> {
+    const buf = await this.delivery.getSignedPdf(requireOrg(session), id);
+    if (!buf) {
+      throw new NotFoundException();
+    }
+    return new StreamableFile(buf, {
+      type: "application/pdf",
+      disposition: `attachment; filename="proposition-${id}-signee.pdf"`,
     });
   }
 
