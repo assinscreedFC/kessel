@@ -93,6 +93,8 @@ export class PublicProposalsController {
   @AllowAnonymous()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post(":token/sign")
+  @HttpCode(200) // signature = action sur une ressource existante (200), pas une création (201) ;
+  // le re-sign idempotent est aussi 200 (no-op propre). Contrat stable pour le client public.
   async sign(
     @Param("token") token: string,
     @Body() dto: SignProposalDto,
