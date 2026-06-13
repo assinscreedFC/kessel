@@ -28,7 +28,6 @@ async function main(): Promise<void> {
       data: { orgId: ORG_B_ID, body: "Note interne Org B" },
     });
 
-    // eslint-disable-next-line no-console
     console.log(`Seed OK : organizations [${ORG_A_ID}, ${ORG_B_ID}] + 1 OrgNote chacune.`);
   } finally {
     await prisma.$disconnect();
@@ -38,7 +37,6 @@ async function main(): Promise<void> {
 // Exécuté seulement quand lancé directement (prisma db seed / tsx seed.ts), pas à l'import.
 if (process.argv[1] && process.argv[1].includes("seed")) {
   main().catch((err: unknown) => {
-    // eslint-disable-next-line no-console
     console.error("Seed failed:", err);
     process.exit(1);
   });

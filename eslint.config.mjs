@@ -14,7 +14,9 @@ export default [
         "error",
         {
           enforceBuildableLibDependency: true,
-          allow: [],
+          // Helper d'infra de test Wave 0 (tests/setup/testcontainers) — consommé par les tests
+          // d'intégration des packages (Plan 01 SUMMARY). Pas une lib de domaine ; autorisé explicitement.
+          allow: ["../../../../tests/setup/testcontainers"],
           depConstraints: [
             {
               sourceTag: "type:shared",
