@@ -2,3 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/shared/*"
+
+# Build scripts autorisés (téléchargement des engines Prisma + esbuild) — pnpm 10 strict.
+onlyBuiltDependencies:
+  - "@prisma/engines"
+  - prisma
+  - esbuild

@@ -1,0 +1,53 @@
+// Schéma métier multi-tenant de Kessel (FOUND-01). Prisma confiné à packages/shared/db (FOUND-05).
+//
+// SOURCE D'IDENTITÉ ORG CANONIQUE = Better Auth (Plan 04). Le plugin organization de Better Auth
+// POSSÈDE les tables organization / member / role et expose activeOrganizationId en session.
+// Prisma NE redéfinit PAS d'organisation/adhésion concurrentes :
+//   - PAS de table d'adhésion Prisma, PAS d'énumération de rôles ici (Better Auth en est propriétaire).
+//   - Le model Organization MAPPE la table canonique Better Auth `organization` (@@map),
+//     pour que Organization.id === organization.id Better Auth (un seul espace d'id).
+//   - Les entités métier (OrgNote, futurs modèles) portent orgId : FK vers cet id canonique.
+//     L'orgId injecté par forOrg(session.activeOrganizationId) (Plan 03) référence donc toujours
+//     un org qui existe réellement — aucun id orphelin possible (mitigation T-1-10).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator kysely {
+  provider = "prisma-kysely"
+  output   = "../src"
+  fileName = "types.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Prisma 7 : l'URL de connexion vit dans prisma.config.ts (datasource.url = env("DATABASE_URL")),
+  // plus dans le bloc datasource du schéma. Un seul datastore partagé avec Better Auth.
+}
+
+// Organization : MAPPÉE sur la table canonique de Better Auth (@@map("organization")).
+// Better Auth (Plan 04) crée et POSSÈDE cette table (colonnes id, name, slug, createdAt, metadata...).
+// Prisma déclare au minimum id + name ; id String @id == organization.id de Better Auth (id canonique).
+model Organization {
+  id        String    @id // == organization.id de Better Auth (id canonique)
+  name      String
+  createdAt DateTime  @default(now())
+  notes     OrgNote[]
+
+  @@map("organization")
+}
+
+// Modèle tenant-scoped d'exemple métier (sert le test d'isolation FOUND-01, Plan 03).
+// orgId est un FK vers l'id CANONIQUE Better Auth (Organization.id = organization.id).
+// Toute FUTURE entité métier porte orgId String + @@index([orgId]) + FK vers Organization.id (FOUND-01).
+model OrgNote {
+  id        String   @id @default(uuid())
+  orgId     String // FK -> Organization.id == organization.id (Better Auth) ; ne peut JAMAIS pointer un org inexistant
+  body      String
+  meta      Json? // champ custom JSONB (cahier §9 — pas EAV) ; index GIN posé en migration brute v2, non bloquant Phase 1
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
