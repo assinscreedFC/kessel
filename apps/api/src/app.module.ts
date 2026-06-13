@@ -4,6 +4,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { envValidationSchema } from "./config/env.validation";
+import { i18nModuleConfig } from "./i18n/i18n.module";
 import { CrmService } from "@kessel/crm";
 import {
   DeliveryService,
@@ -43,6 +44,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     }),
     AuthModule.forRoot({ auth }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+    i18nModuleConfig,
   ],
   controllers: [
     HealthController,
