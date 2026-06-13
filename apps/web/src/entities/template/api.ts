@@ -12,11 +12,35 @@ import { EMPTY_BODY_JSON, type Template } from "./model";
 // serveur copie le bodyJson (anti-tampering, le web ne l'envoie jamais) et renvoie la ProposalDto créée.
 
 const TEMPLATES_KEY = ["templates"] as const;
+const templateKey = (id: string) => [...TEMPLATES_KEY, id] as const;
 
 export function useTemplates() {
   return useQuery({
     queryKey: TEMPLATES_KEY,
     queryFn: () => api.get<Template[]>("/templates"),
+  });
+}
+
+export function useTemplate(id: string) {
+  return useQuery({
+    queryKey: templateKey(id),
+    queryFn: () => api.get<Template>(`/templates/${id}`),
+    enabled: id !== "",
+  });
+}
+
+// PATCH silencieux du corps d'un template (autosave de l'éditeur de template). bodyJson passé en
+// ARGUMENT (anti stale-closure). Pas de toast (l'indicateur d'autosave porte l'état).
+export function useUpdateTemplateBodySilent(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: { title?: string; bodyJson?: unknown }) => {
+      // L'éditeur passe {title} ou {bodyJson} ; le template a un `name`, pas un `title`.
+      const body =
+        patch.title !== undefined ? { name: patch.title } : { bodyJson: patch.bodyJson };
+      return api.patch<Template>(`/templates/${id}`, body);
+    },
+    onSuccess: (template) => queryClient.setQueryData(templateKey(id), template),
   });
 }
 

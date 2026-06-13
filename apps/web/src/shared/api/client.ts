@@ -30,6 +30,16 @@ async function request<T>(
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 
+// GET binaire (export PDF) : récupère un Blob via la même session (credentials:include). Aucun token
+// en localStorage — le download PDF passe par le cookie httpOnly (T-3-web-auth).
+async function getBlob(path: string): Promise<Blob> {
+  const res = await fetch(`/api${path}`, { method: "GET", credentials: "include" });
+  if (!res.ok) {
+    throw new Error(`API ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string, query?: QueryParams): Promise<T> =>
     request<T>("GET", path, undefined, query),
@@ -38,4 +48,5 @@ export const api = {
   patch: <T>(path: string, body?: unknown): Promise<T> =>
     request<T>("PATCH", path, body),
   del: <T>(path: string): Promise<T> => request<T>("DELETE", path),
+  getBlob,
 };
