@@ -5,6 +5,7 @@ import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
 import {
   DeliveryService,
+  OutcomeService,
   PdfService,
   ProposalsService,
   SigningService,
@@ -17,6 +18,7 @@ import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
 import { ProposalsController } from "./proposals/proposals.controller";
 import { AiProposalsController } from "./proposals/ai-proposals.controller";
+import { OutcomesController } from "./proposals/outcomes.controller";
 import { TemplatesController } from "./proposals/templates.controller";
 import { PricingController } from "./pricing/pricing.controller";
 import { PublicProposalsController } from "./public/public-proposals.controller";
@@ -42,6 +44,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     DealsController,
     ProposalsController,
     AiProposalsController,
+    OutcomesController,
     TemplatesController,
     PricingController,
     PublicProposalsController,
@@ -55,6 +58,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     SigningService,
     StorageService,
     DeliveryService,
+    OutcomeService,
     AiProposalService,
     { provide: PROPOSAL_GENERATOR, useClass: AnthropicProposalGenerator },
   ],
