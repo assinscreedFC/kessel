@@ -1,0 +1,23 @@
+# Caddy — reverse-proxy unique de la stack Kessel (FOUND-04).
+# En local : écoute sur :80 (pas de TLS auto, accessible via http://localhost).
+# En prod : remplacer `:80` par le domaine (ex. kessel.example.com) -> Caddy gère le TLS auto.
+
+:80 {
+	# /api/health -> l'api NestJS sert /health (route liveness anonyme). On réécrit le préfixe
+	# car Caddy expose /api/health mais l'app sert /health (le healthcheck Docker du compose, lui,
+	# tape directement /health en interne).
+	handle /api/health {
+		rewrite * /health
+		reverse_proxy api:3000
+	}
+
+	# /api/* -> api NestJS. Better Auth monte ses routes sous /api/auth/* (préfixe conservé).
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Tout le reste -> front web (nginx servant le build Vite, fallback SPA).
+	handle {
+		reverse_proxy web:80
+	}
+}

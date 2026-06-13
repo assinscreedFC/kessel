@@ -33,9 +33,11 @@ RUN corepack enable
 COPY --from=build /app/node_modules ./node_modules
 # Bundle api + sourcemaps.
 COPY --from=build /app/dist ./dist
-# Schéma Prisma + config (pour `prisma db push` au boot) + client généré.
-COPY --from=build /app/packages/shared/db/prisma ./packages/shared/db/prisma
-COPY --from=build /app/packages/shared/db/prisma.config.ts ./packages/shared/db/prisma.config.ts
+# Schéma Prisma seul (pour `prisma db push --url` au boot). prisma.config.ts est VOLONTAIREMENT
+# absent du runtime : il importe "prisma/config" (non résolvable hors node_modules local du package)
+# et n'est pas requis quand l'URL est passée explicitement via --url. Le client généré vit dans
+# node_modules/.pnpm (copié plus haut) — résolu par l'adapter au runtime.
+COPY --from=build /app/packages/shared/db/prisma/schema.prisma ./packages/shared/db/prisma/schema.prisma
 COPY --from=build /app/packages/shared/db/package.json ./packages/shared/db/package.json
 # Entrypoint (migrations ordonnées + start).
 COPY --from=build /app/apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
