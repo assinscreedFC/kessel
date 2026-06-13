@@ -164,6 +164,9 @@ describe("e2e /api/proposals/generate (PROP-04/05/06, AI-02 — real PG, generat
   }
 
   // Crée une Proposal puis force son deal en WON (les deals se créent en LEAD ; on mute via PATCH).
+  // Phase 6 (Pitfall 3) : le few-shot lit désormais ProposalOutcome(WON) (readResolvedOutcomes), PAS
+  // deal.status — la fixture crée donc AUSSI l'issue structurée via basePrisma (le hook signature qui
+  // produira cet outcome arrive en Plan 06-02 ; ici on l'amorce directement pour la rétro-compat AI-02).
   async function createWonProposal(cookie: string, bodyJson: unknown): Promise<void> {
     const dealId = await createDeal(cookie);
     const pRes = await fetch(`${baseUrl}/api/proposals`, {
@@ -172,13 +175,23 @@ describe("e2e /api/proposals/generate (PROP-04/05/06, AI-02 — real PG, generat
       body: JSON.stringify({ dealId, title: "Proposition gagnée", bodyJson }),
     });
     expect(pRes.status).toBe(201);
-    // Le deal passe à WON (historique gagné qui alimente le few-shot AI-02).
+    const proposal = (await pRes.json()) as { id: string };
+    // Le deal passe à WON (geste métier existant ; le statut reste cohérent).
     const patch = await fetch(`${baseUrl}/api/deals/${dealId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json", cookie },
       body: JSON.stringify({ status: "WON" }),
     });
     expect(patch.status).toBe(200);
+    // ProposalOutcome(WON) = l'ISSUE STRUCTURÉE que readResolvedOutcomes lit pour le few-shot.
+    // ProposalOutcome est HORS SCOPED_MODELS (scopé via parent) -> création directe via basePrisma.
+    await basePrisma.proposalOutcome.create({
+      data: {
+        proposalId: proposal.id,
+        outcome: "WON",
+        context: { amount: "0.00", lineCount: 0, deliverableCount: 0, bodyTextLength: 0 },
+      },
+    });
   }
 
   beforeAll(async () => {

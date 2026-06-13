@@ -24,8 +24,10 @@ import { proseMirrorToText } from "./body-text";
 // IDOR (T-4-idor) : la validation dealId est déléguée à ProposalsService.createProposal (forOrg
 // findUnique avant insert) -> 404 si le deal n'est pas dans l'org. On ne réécrit pas ce guard.
 //
-// CALIBRATION (AI-02) : les propositions GAGNÉES (deal.status WON) alimentent le few-shot ; leur
-// bodyText est dérivé du bodyJson ProseMirror via proseMirrorToText (NON VIDE pour un corps réel).
+// CALIBRATION (AI-02, AI-01) : les propositions GAGNÉES alimentent le few-shot via leur ISSUE
+// STRUCTURÉE ProposalOutcome(WON) (Phase 6), PLUS le statut deal brut. La lecture (readResolvedOutcomes)
+// filtre sur outcome WON ; leur bodyText est dérivé du bodyJson ProseMirror via proseMirrorToText (NON
+// VIDE pour un corps réel). LOST est disponible comme contre-signal futur (gagné prioritaire en v0).
 //
 // DÉGRADATION (T-4-degrade) : si la clé est absente, le generator lève AiUnavailableError ; on la
 // laisse remonter telle quelle (le controller la mappe en 503). On ne logue JAMAIS brief ni clé.
@@ -72,7 +74,7 @@ export class AiProposalService {
     brief: string,
   ): Promise<ProposalDto> {
     const pricing = await this.readPricing(orgId);
-    const wonExamples = await this.readWonProposals(orgId);
+    const wonExamples = await this.readResolvedOutcomes(orgId);
 
     // Frontière LLM (fakée en test). AiUnavailableError remonte -> 503 côté controller.
     const out = await this.generator.generate({ brief, pricing, wonExamples });
@@ -108,13 +110,15 @@ export class AiProposalService {
     }));
   }
 
-  // Propositions GAGNÉES de l'org (deal.status WON) -> few-shot WON (AI-02). forOrg UNIQUEMENT :
-  // l'orgId est injecté dans le where racine, le filtre `deal: { status: WON }` reste une condition
-  // de relation -> aucune fuite cross-org. bodyText dérivé via proseMirrorToText (NON VIDE pour un
-  // corps réel ; JAMAIS un placeholder vide).
-  private async readWonProposals(orgId: string): Promise<GenerateProposalWonExample[]> {
+  // Propositions à issue GAGNÉE de l'org -> few-shot WON (AI-02 + AI-01). Lit l'ISSUE STRUCTURÉE
+  // ProposalOutcome(WON) (Phase 6), PLUS le statut deal brut : la source de calibration est désormais
+  // l'issue propre et contextualisée. forOrg UNIQUEMENT : l'orgId est injecté dans le where racine, le
+  // filtre `outcome: { outcome: "WON" }` reste une condition de relation -> aucune fuite cross-org.
+  // bodyText dérivé via proseMirrorToText (NON VIDE pour un corps réel ; JAMAIS un placeholder vide).
+  // LOST disponible comme contre-signal futur — non injecté en v0 (gagné prioritaire, CONTEXT).
+  private async readResolvedOutcomes(orgId: string): Promise<GenerateProposalWonExample[]> {
     const rows = (await forOrg(orgId).proposal.findMany({
-      where: { deal: { status: "WON" } },
+      where: { outcome: { outcome: "WON" } },
       orderBy: { createdAt: "desc" },
       take: WON_FEW_SHOT_LIMIT,
       include: { lines: { orderBy: { position: "asc" } } },
