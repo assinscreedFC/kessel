@@ -7,9 +7,28 @@
 // bodyJson = document ProseMirror/Tiptap : typé `unknown` (forme contrôlée par le schéma de l'éditeur,
 // validé/borné côté serveur ; jamais exécuté).
 
-// Statut volontairement réduit à DRAFT en Phase 3 (SENT/SIGNED viendront Phase 5).
-export const ProposalStatus = { DRAFT: "DRAFT" } as const;
+// Statut de la proposition (miroir du schéma Prisma, Plan 05-01). Étendu en Phase 5 avec
+// SENT (lien public généré, token hashé) et SIGNED (PAdES signé, deal WON). Enum stable à ces
+// 3 valeurs (AI-01 Phase 6 lit ces statuts ; ordre fixe DRAFT -> SENT -> SIGNED).
+export const ProposalStatus = { DRAFT: "DRAFT", SENT: "SENT", SIGNED: "SIGNED" } as const;
 export type ProposalStatus = (typeof ProposalStatus)[keyof typeof ProposalStatus];
+
+// === Suivi (tracking) — DELIV-02 ===
+// Le serveur n'émet que SENT / OPENED / VIEWED comme ProposalEvent (Plan 05-01/05-02) ; la transition
+// SIGNED est portée par Proposal.status (le record Signature n'est pas exposé au boundary web). Le web
+// dérive la ligne "Signée" de la timeline depuis le statut SIGNED de la proposition.
+export type ProposalEventType = "SENT" | "OPENED" | "VIEWED";
+
+// Event de la timeline dashboard, renvoyé par GET /api/proposals/:id/events (forOrg). `meta` (ip /24 ou
+// null, RGPD) n'est PAS surfacé dans l'UI v0. `signerName` est optionnel : non porté par les events
+// SENT/OPENED/VIEWED, il n'est présent que si le serveur l'expose un jour (sinon la ligne Signée,
+// dérivée du statut, s'affiche sans nom).
+export interface ProposalEventDto {
+  id: string;
+  type: ProposalEventType;
+  occurredAt: string; // ISO
+  signerName?: string | null;
+}
 
 // === Grille de tarifs (PricingItem) ===
 export interface PricingItemInput {

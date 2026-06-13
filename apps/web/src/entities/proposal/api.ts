@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@/shared/api/client";
 import { toast } from "@/shared/ui/sonner";
-import type { GenerateProposalRequest } from "@kessel/shared";
+import type { GenerateProposalRequest, ProposalEventDto } from "@kessel/shared";
 import type { Proposal } from "./model";
 
 // Couche data de l'entité Proposal (couche `entities`). Hooks TanStack Query consommant /api/proposals
@@ -15,6 +15,7 @@ import type { Proposal } from "./model";
 
 const PROPOSALS_KEY = ["proposals"] as const;
 const proposalKey = (id: string) => [...PROPOSALS_KEY, id] as const;
+const proposalEventsKey = (id: string) => [...proposalKey(id), "events"] as const;
 
 export function useProposals() {
   return useQuery({
@@ -168,4 +169,59 @@ export function useReorderQuoteLines(proposalId: string) {
     onSuccess: (proposal) => queryClient.setQueryData(proposalKey(proposalId), proposal),
     onError: () => toast.error("Échec de l'enregistrement. Réessayez."),
   });
+}
+
+// === Livraison & suivi (Phase 5, DELIV-01/02/03) ===
+//
+// Le DASHBOARD consomme trois endpoints authentifiés (credentials:include via le client) :
+//   - POST /api/proposals/:id/send -> { token, status, url } : génère le lien public (status DRAFT->SENT),
+//     idempotent (re-send renvoie url=null, le lien existant reste valide). L'appelant copie l'url dans le
+//     presse-papiers et toaste (le hook n'affiche AUCUN toast : la copie clipboard + son fallback vivent
+//     dans la feature, qui distingue succès clipboard / fallback). On invalide la proposition + sa timeline.
+//   - GET  /api/proposals/:id/events -> ProposalEventDto[] : timeline (SENT/OPENED/VIEWED). Refetch on focus.
+//   - GET  /api/proposals/:id/signed-pdf -> blob : re-download du PDF signé (PAdES), visible quand SIGNED.
+
+export interface SendProposalResult {
+  token: string | null;
+  status: string;
+  url: string | null;
+}
+
+// Mutation Envoyer : invalide la proposition (status -> SENT) + sa timeline. PAS de toast ici (la feature
+// porte le feedback "Lien copié" / le fallback clipboard). Erreur -> remontée à l'appelant via onError.
+export function useSendProposal(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<SendProposalResult, unknown, void>({
+    mutationFn: () => api.post<SendProposalResult>(`/proposals/${id}/send`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: proposalKey(id) });
+      queryClient.invalidateQueries({ queryKey: proposalEventsKey(id) });
+    },
+  });
+}
+
+// Timeline (DELIV-02) : passive, ne bloque jamais l'éditeur. Refetch au focus pour capter les
+// ouvertures/vues du client. `enabled` permet à l'appelant de ne charger que SENT/SIGNED si voulu.
+export function useProposalEvents(id: string, enabled = true) {
+  return useQuery({
+    queryKey: proposalEventsKey(id),
+    queryFn: () => api.get<ProposalEventDto[]>(`/proposals/${id}/events`),
+    enabled: enabled && id !== "",
+    refetchOnWindowFocus: true,
+  });
+}
+
+// Télécharge le PDF signé (PAdES) via le cookie de session (T-5-web-auth : aucun token côté web).
+// Distinct de l'export PDF (brouillon non signé) — fichier "<titre>-signee.pdf". Throw en cas d'échec
+// (l'appelant toaste). Le slug est calculé côté feature (réutilise la même logique que l'export).
+export async function downloadSignedPdf(id: string, filename: string): Promise<void> {
+  const blob = await api.getBlob(`/proposals/${id}/signed-pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
