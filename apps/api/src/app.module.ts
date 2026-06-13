@@ -15,7 +15,9 @@ import {
   StorageService,
 } from "@kessel/proposals";
 import { AiProposalService, AnthropicProposalGenerator, PROPOSAL_GENERATOR } from "@kessel/ai";
+import { ProjectsService } from "@kessel/projects";
 import { HealthController } from "./health/health.controller";
+import { ProjectsController } from "./projects/projects.controller";
 import { SettingsController } from "./settings/settings.controller";
 import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
@@ -57,6 +59,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     TemplatesController,
     PricingController,
     PublicProposalsController,
+    ProjectsController,
   ],
   // PROPOSAL_GENERATOR (token DI Symbol) bindé à l'impl Anthropic en prod. En test e2e, on l'override
   // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).
@@ -69,6 +72,7 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     DeliveryService,
     OutcomeService,
     AiProposalService,
+    ProjectsService,
     { provide: PROPOSAL_GENERATOR, useClass: AnthropicProposalGenerator },
   ],
 })

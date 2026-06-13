@@ -1,5 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { basePrisma, forOrg } from "@kessel/db";
+import { buildBudgetSnapshot } from "@kessel/projects";
 import { PdfService } from "./pdf.service";
 import { SigningService } from "./signing.service";
 import { StorageService } from "./storage.service";
@@ -331,6 +332,18 @@ export class DeliveryService {
       outcomeRow?.lines ?? [],
     );
 
+    // 4c. Fallback titre projet (Pitfall 1 — le deal n'est pas chargé dans le findUnique initial).
+    //     Charger le deal séparément AVANT la transaction pour le fallback `proposal.title || deal.title`.
+    const deal = (await basePrisma.deal.findUnique({
+      where: { id: proposal.dealId },
+      select: { title: true },
+    })) as { title: string } | null;
+
+    // 4d. Budget snapshot figé AVANT la transaction (données déjà disponibles dans outcomeRow.lines).
+    //     buildBudgetSnapshot copie les valeurs en string primitives → immuable post-mutation QuoteLines
+    //     (PROJ-02 / Pitfall 4/5). Construit hors transaction : I/O pure, aucun lock Postgres.
+    const budgetSnapshot = buildBudgetSnapshot(outcomeRow?.lines ?? [], signedAt);
+
     // 5. UNE $transaction atomique : Proposal SIGNED + Signature + deal WON + ProposalOutcome(WON).
     try {
       await basePrisma.$transaction(async (tx) => {
@@ -366,6 +379,32 @@ export class DeliveryService {
         });
         // Note : pas d'event "SIGNED" (ProposalEventType = SENT/OPENED/VIEWED uniquement, Plan 05-01).
         // La transition est tracée par Proposal.status=SIGNED + signedAt + le Signature record lui-même.
+
+        // PROJ-01/02/03 — spin-up atomique du projet + tâches initiales (Plan 02-02).
+        // Atomique avec SIGNED + deal WON + ProposalOutcome : pas de projet sans signature signée.
+        // Idempotence : la garde `status === "SIGNED"` en early return court-circuite avant d'atteindre
+        // cette transaction ; `proposalId @unique` est la dernière ligne de défense (P2025 concurrent
+        // annule toute la transaction avant d'atteindre ce point, cf. Pitfall 2 RESEARCH).
+        const project = await tx.project.create({
+          data: {
+            orgId: proposal.orgId,
+            dealId: proposal.dealId,
+            proposalId: proposal.id,
+            title: (outcomeRow?.title?.trim() || deal?.title || "Projet"),
+            status: "ACTIVE",
+            budgetSnapshot: budgetSnapshot as never,
+          } as never,
+        });
+        await tx.task.createMany({
+          data: [...(outcomeRow?.lines ?? [])]
+            .sort((a, b) => a.position - b.position)
+            .map((line) => ({
+              projectId: project.id,
+              title: line.description,
+              position: line.position,
+              done: false,
+            })),
+        });
       });
     } catch (err: unknown) {
       // P2025 (Record not found) = la garde `status not SIGNED` a touché 0 ligne : une signature

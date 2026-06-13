@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { startPostgres } from "../../../tests/setup/testcontainers";
+import { generateTestP12 } from "./test-cert";
 
 // Helper de boot e2e (FOUND-02/03) — démarre la stack COMPLÈTE sur un Postgres réel :
 //   1. conteneur Postgres jetable (Testcontainers, AUCUN mock) ;
@@ -25,6 +26,9 @@ type BootedApp = {
   forOrg: typeof import("@kessel/db").forOrg;
   basePrisma: typeof import("@kessel/db").basePrisma;
   auth: typeof import("@kessel/auth").auth;
+  // Exposé pour les specs qui accèdent au DI NestJS (ex: reset throttler via getStorageToken).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _nestApp: any;
   stop: () => Promise<void>;
 };
 
@@ -62,6 +66,14 @@ export async function bootTestApp(): Promise<BootedApp> {
   process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod";
   // baseURL trusted par Better Auth pour les cookies/CSRF en test.
   process.env.BETTER_AUTH_URL = "http://localhost";
+  // Cert de signature PAdES (DELIV-03) : généré une fois en tmpdir, réutilisé (idempotent).
+  // Requis par SigningService — sans lui, POST /sign -> 503. bootTestApp intègre la signature
+  // réelle (pas mockée) exactement comme sign-proposal.spec.ts.
+  if (!process.env.SIGNING_P12_PATH) {
+    const { p12Path, passphrase } = generateTestP12();
+    process.env.SIGNING_P12_PATH = p12Path;
+    process.env.SIGNING_P12_PASSPHRASE = passphrase;
+  }
 
   // 1. Prisma db push D'ABORD : crée `organization` (miroir des colonnes canoniques Better Auth)
   //    + OrgNote + FK. db push est destructif (DROP des tables hors schéma) — il doit donc précéder
@@ -76,13 +88,37 @@ export async function bootTestApp(): Promise<BootedApp> {
 
   const { forOrg, basePrisma, closeDb } = await import("@kessel/db");
 
-  // 3. Boot NestJS (bodyParser:false). Import dynamique pour respecter l'ordre DATABASE_URL.
-  const { NestFactory } = await import("@nestjs/core");
+  // 3. Boot NestJS via Test.createTestingModule (comme sign-proposal.spec.ts) pour pouvoir
+  //    stubbé StorageService (MinIO indisponible en e2e léger). La signature PAdES reste RÉELLE ;
+  //    seul le stockage objet est intercepté en mémoire.
   const { ValidationPipe } = await import("@nestjs/common");
   const { AppModule } = await import("./app.module");
-  const app = await NestFactory.create(AppModule, { bodyParser: false, logger: false });
-  // Même ValidationPipe global qu'en prod (main.ts) — sinon les specs DTO ne testeraient pas le
-  // comportement réel (Pitfall 3 : un payload invalide passerait au lieu de renvoyer 400).
+  const { StorageService } = await import("@kessel/proposals");
+  const { Test } = await import("@nestjs/testing");
+
+  // Stub MinIO en mémoire (putSignedPdf capture les bytes ; getSignedPdf les restitue).
+  // Identical au StorageStub de sign-proposal.spec.ts — seul MockIO est substituée, la crypto reste réelle.
+  class StorageStub {
+    readonly store = new Map<string, Buffer>();
+    async onModuleInit(): Promise<void> { /* pas de MinIO en test */ }
+    async putSignedPdf(proposalId: string, pdf: Buffer): Promise<string> {
+      const key = `proposals/${proposalId}/signed.pdf`;
+      this.store.set(key, pdf);
+      return key;
+    }
+    async getSignedPdf(key: string): Promise<Buffer> {
+      const buf = this.store.get(key);
+      if (!buf) throw new Error(`objet absent: ${key}`);
+      return buf;
+    }
+  }
+
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(StorageService)
+    .useValue(new StorageStub())
+    .compile();
+  const app = moduleRef.createNestApplication({ bodyParser: false, logger: false });
+  // Même ValidationPipe global qu'en prod (main.ts).
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(0); // port éphémère
   const server = app.getHttpServer();
@@ -95,6 +131,7 @@ export async function bootTestApp(): Promise<BootedApp> {
     forOrg,
     basePrisma,
     auth,
+    _nestApp: app,
     stop: async () => {
       await app.close();
       await closeDb();
