@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Briefcase, Users } from "lucide-react";
+import { Briefcase, FileText, LayoutTemplate, Tag, Users } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 // App-shell — couche `widgets` de la FSD. Layout unique (02-UI-SPEC) réutilisé par toutes les
@@ -40,6 +40,9 @@ export function AppShell() {
         <nav className="flex flex-col gap-1 px-2">
           <NavItem to="/" icon={Users} label="Contacts" />
           <NavItem to="/deals" icon={Briefcase} label="Deals" />
+          <NavItem to="/proposals" icon={FileText} label="Propositions" />
+          <NavItem to="/pricing" icon={Tag} label="Tarifs" />
+          <NavItem to="/templates" icon={LayoutTemplate} label="Templates" />
         </nav>
       </aside>
       <main className="flex-1 px-8 py-8">

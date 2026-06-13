@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/widgets/app-shell/ui/app-shell";
 import { ContactsPage } from "@/pages/contacts/ui/contacts-page";
 import { DealsPage } from "@/pages/deals/ui/deals-page";
+import { PricingPage } from "@/pages/pricing/ui/pricing-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -23,6 +24,7 @@ export function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<ContactsPage />} />
             <Route path="/deals" element={<DealsPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
