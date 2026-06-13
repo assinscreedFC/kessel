@@ -6,6 +6,7 @@ import { DealsPage } from "@/pages/deals/ui/deals-page";
 import { PricingPage } from "@/pages/pricing/ui/pricing-page";
 import { TemplatesPage } from "@/pages/templates/ui/templates-page";
 import { ProposalsPage } from "@/pages/proposals/ui/proposals-page";
+import { DatasetPage } from "@/pages/dataset/ui/dataset-page";
 import { ProposalEditorPage } from "@/pages/proposal-editor/ui/proposal-editor-page";
 import { TemplateEditorPage } from "@/pages/proposal-editor/ui/template-editor-page";
 import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-page";
@@ -30,6 +31,7 @@ export function App() {
             <Route path="/" element={<ContactsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/proposals" element={<ProposalsPage />} />
+            <Route path="/dataset" element={<DatasetPage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
           </Route>
