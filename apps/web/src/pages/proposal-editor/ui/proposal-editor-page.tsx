@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -10,6 +10,7 @@ import { AutosaveIndicator } from "@/features/proposal-editor/ui/autosave-indica
 import { useAutosave } from "@/features/proposal-editor/lib/use-autosave";
 import { useExportPdf } from "@/features/proposal-editor/lib/use-export-pdf";
 import { QuoteBuilder } from "@/features/quote-builder/ui/quote-builder";
+import { AiDraftBanner } from "@/features/generate-proposal/ui/ai-draft-banner";
 
 // Page éditeur de proposition (route /proposals/:id, 03-UI-SPEC §Proposal Editor page). Layout pleine
 // largeur (WideAppShell) : header sticky (Retour + titre borderless + indicateur autosave + Exporter
@@ -20,16 +21,21 @@ import { QuoteBuilder } from "@/features/quote-builder/ui/quote-builder";
 
 export function ProposalEditorPage() {
   const { id = "" } = useParams();
+  const location = useLocation();
   const { data: proposal, isPending, isError, refetch } = useProposal(id);
+
+  // Flag de navigation posé par le hand-off de génération IA (brief-dialog) -> affiche la bannière
+  // "brouillon généré par IA". Ne gate AUCUN comportement (la proposition reste une DRAFT standard).
+  const aiGenerated = (location.state as { aiGenerated?: boolean } | null)?.aiGenerated === true;
 
   if (isPending) return <EditorSkeleton />;
   if (isError || !proposal) return <EditorError onRetry={() => refetch()} />;
 
   // key=id : remonte l'éditeur (content init-once) si on navigue vers une autre proposition.
-  return <LoadedEditor key={proposal.id} proposal={proposal} />;
+  return <LoadedEditor key={proposal.id} proposal={proposal} aiGenerated={aiGenerated} />;
 }
 
-function LoadedEditor({ proposal }: { proposal: Proposal }) {
+function LoadedEditor({ proposal, aiGenerated }: { proposal: Proposal; aiGenerated: boolean }) {
   const navigate = useNavigate();
   const autosave = useAutosave(proposal.id);
   const [title, setTitle] = useState(proposal.title);
@@ -49,6 +55,7 @@ function LoadedEditor({ proposal }: { proposal: Proposal }) {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {aiGenerated && <AiDraftBanner />}
       <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-slate-200 bg-white px-8">
         <button
           type="button"

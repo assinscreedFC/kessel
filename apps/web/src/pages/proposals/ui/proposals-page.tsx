@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileText } from "lucide-react";
+import { ChevronDown, FileText, Sparkles } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -24,6 +24,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -32,6 +38,7 @@ import { cn } from "@/shared/lib/utils";
 import { useProposals, useCreateProposal } from "@/entities/proposal/api";
 import { PROPOSAL_STATUS_META } from "@/entities/proposal/status";
 import { useDeals } from "@/entities/deal/api";
+import { BriefDialog } from "@/features/generate-proposal/ui/brief-dialog";
 
 // Page Propositions (couche `pages`, 03-UI-SPEC §Proposals list). Table dense (Titre / Deal / Statut
 // badge Brouillon / Modifié le). CTA "Nouvelle proposition" -> Dialog (Select deal via useDeals, REQUIS
@@ -52,15 +59,40 @@ export function ProposalsPage() {
   const { data: proposals, isPending, isError, refetch } = useProposals();
   const { data: deals } = useDeals();
   const [createOpen, setCreateOpen] = useState(false);
+  const [briefOpen, setBriefOpen] = useState(false);
+  // Deal pré-rempli du flux manuel (chemin "Rédiger manuellement" si l'IA est indisponible).
+  const [prefillDealId, setPrefillDealId] = useState<string | undefined>(undefined);
 
   const dealName = (dealId: string) =>
     (deals ?? []).find((d) => d.id === dealId)?.title ?? "—";
+
+  const openManual = (dealId?: string) => {
+    setPrefillDealId(dealId);
+    setCreateOpen(true);
+  };
 
   return (
     <div>
       <header className="mb-8 flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900">Propositions</h1>
-        <Button onClick={() => setCreateOpen(true)}>Nouvelle proposition</Button>
+        {/* Split CTA (04-UI-SPEC §Entry point) : le chemin manuel reste aussi proéminent que l'IA. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              Nouvelle proposition
+              <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => openManual(undefined)}>
+              Proposition vierge
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setBriefOpen(true)}>
+              <Sparkles className="h-3.5 w-3.5 text-slate-500" />
+              Depuis un brief (IA)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       <TableContainer>
@@ -69,7 +101,7 @@ export function ProposalsPage() {
         ) : isError ? (
           <ErrorState onRetry={() => refetch()} />
         ) : proposals.length === 0 ? (
-          <EmptyState onCreate={() => setCreateOpen(true)} />
+          <EmptyState onCreate={() => openManual(undefined)} />
         ) : (
           <Table>
             <TableHeader>
@@ -114,11 +146,20 @@ export function ProposalsPage() {
 
       <CreateProposalDialog
         open={createOpen}
+        prefillDealId={prefillDealId}
         onOpenChange={setCreateOpen}
         onCreated={(id) => {
           setCreateOpen(false);
           navigate(`/proposals/${id}`);
         }}
+      />
+
+      {/* Génération IA (split CTA "Depuis un brief (IA)") : Select deal requis (vide). 503 -> chemin
+          manuel pré-rempli sur le deal sélectionné. */}
+      <BriefDialog
+        open={briefOpen}
+        onOpenChange={setBriefOpen}
+        onWriteManually={(dealId) => openManual(dealId)}
       />
     </div>
   );
@@ -126,13 +167,20 @@ export function ProposalsPage() {
 
 interface CreateProposalDialogProps {
   open: boolean;
+  prefillDealId?: string;
   onOpenChange: (open: boolean) => void;
   onCreated: (id: string) => void;
 }
 
 // Dialog "Nouvelle proposition" : résout le deal (Select via useDeals, REQUIS — une proposition
 // appartient à un deal) + le titre, crée une proposition au corps vide puis navigue vers l'éditeur.
-function CreateProposalDialog({ open, onOpenChange, onCreated }: CreateProposalDialogProps) {
+// `prefillDealId` : pré-sélectionne le deal (chemin "Rédiger manuellement" depuis le brief IA).
+function CreateProposalDialog({
+  open,
+  prefillDealId,
+  onOpenChange,
+  onCreated,
+}: CreateProposalDialogProps) {
   const { data: deals } = useDeals();
   const [dealId, setDealId] = useState("");
   const [title, setTitle] = useState("");
@@ -140,11 +188,11 @@ function CreateProposalDialog({ open, onOpenChange, onCreated }: CreateProposalD
 
   useEffect(() => {
     if (open) {
-      setDealId("");
+      setDealId(prefillDealId ?? "");
       setTitle("");
       setTouched(false);
     }
-  }, [open]);
+  }, [open, prefillDealId]);
 
   const create = useCreateProposal((proposal) => onCreated(proposal.id));
 

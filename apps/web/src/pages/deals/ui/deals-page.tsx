@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Briefcase } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Briefcase, Sparkles } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,10 @@ import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { DealDialog } from "@/features/create-deal/ui/deal-dialog";
+import {
+  BriefDialog,
+  type LockedDeal,
+} from "@/features/generate-proposal/ui/brief-dialog";
 import { useDeals } from "@/entities/deal/api";
 import { DEAL_STATUS_META } from "@/entities/deal/status";
 import { DEAL_STATUS_VALUES, type Deal, type DealStatus } from "@/entities/deal/model";
@@ -52,6 +56,7 @@ function isDealStatus(value: string | null): value is DealStatus {
 }
 
 export function DealsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusParam = searchParams.get("status");
   // Statut courant : valide -> filtre serveur ; sinon (absent/invalide) -> "Tous" (pas de param).
@@ -62,6 +67,8 @@ export function DealsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Deal | null>(null);
+  // Deal ancré du flux de génération IA (brief-dialog ouvert avec le deal verrouillé).
+  const [briefDeal, setBriefDeal] = useState<LockedDeal | null>(null);
 
   // Résolution contactId -> nom côté web (le DealDto ne porte pas le nom du contact ; on ne modifie
   // pas le contrat serveur Plan 02). Map mémoïsée sur les contacts chargés.
@@ -128,6 +135,7 @@ export function DealsPage() {
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Montant</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="text-right">Proposition</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -152,6 +160,23 @@ export function DealsPage() {
                     <TableCell className="text-slate-500">
                       {dateFormatter.format(new Date(deal.createdAt))}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setBriefDeal({
+                            id: deal.id,
+                            title: deal.title,
+                            contactName: contactNameById.get(deal.contactId) ?? null,
+                          });
+                        }}
+                      >
+                        <Sparkles className="mr-2 h-3.5 w-3.5 text-slate-500" />
+                        Nouvelle proposition depuis un brief
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -161,6 +186,17 @@ export function DealsPage() {
       </TableContainer>
 
       <DealDialog open={dialogOpen} onOpenChange={setDialogOpen} deal={editing} />
+
+      {/* Génération IA deal-ancrée : deal VERROUILLÉ (ligne statique, pas un Select). 503 -> on dirige
+          vers la liste propositions où le chemin manuel reste proéminent (jamais d'écran blanc). */}
+      <BriefDialog
+        open={briefDeal !== null}
+        onOpenChange={(open) => {
+          if (!open) setBriefDeal(null);
+        }}
+        lockedDeal={briefDeal ?? undefined}
+        onWriteManually={() => navigate("/proposals")}
+      />
     </div>
   );
 }
