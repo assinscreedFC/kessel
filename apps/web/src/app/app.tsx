@@ -8,6 +8,7 @@ import { TemplatesPage } from "@/pages/templates/ui/templates-page";
 import { ProposalsPage } from "@/pages/proposals/ui/proposals-page";
 import { ProposalEditorPage } from "@/pages/proposal-editor/ui/proposal-editor-page";
 import { TemplateEditorPage } from "@/pages/proposal-editor/ui/template-editor-page";
+import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -40,6 +41,10 @@ export function App() {
               element={<TemplateEditorPage />}
             />
           </Route>
+          {/* Surface PUBLIQUE client (DELIV-01/02/03) : ISOLÉE du dashboard authentifié — montée HORS
+              de tout layout AppShell/WideAppShell (aucune sidebar/chrome, aucune session). Le token
+              dans l'URL est le secret d'accès ; le client public (publicApi) n'envoie jamais de cookie. */}
+          <Route path="/p/:token" element={<PublicProposalPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster />
