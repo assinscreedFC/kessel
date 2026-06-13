@@ -1,3 +1,4 @@
-// @kessel/db — client Prisma étendu + types Kysely (Plan 02). Prisma confiné ICI uniquement.
-// Frontière posée — aucun client instancié en Phase 1.
-export const DB_MODULE = { name: "db" } as const;
+// @kessel/db — surface publique UNIQUE du package db (FOUND-05).
+// Prisma + Kysely sont instanciés et confinés ICI ; les autres packages ne consomment que cette API.
+export { basePrisma, db } from "./client";
+export type { DB } from "./types";
