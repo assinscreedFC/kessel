@@ -1,18 +1,40 @@
-import { Button } from "@/shared/ui/button";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { AppShell } from "@/widgets/app-shell/ui/app-shell";
+import { ContactsPage } from "@/pages/contacts/ui/contacts-page";
+import { Toaster } from "@/shared/ui/sonner";
 
-// App shell (couche `app` de la Feature-Sliced Design). Dashboard placeholder Phase 1 :
-// AUCUNE feature métier (ni CRM, ni propositions) — juste le squelette FSD + une preuve
-// de câblage shadcn/ui (Button) et Tailwind. Les features métier arrivent aux phases suivantes.
+// App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
+// (cache server-state TanStack), BrowserRouter + 2 routes (Contacts `/`, Deals `/deals`) dans le
+// layout AppShell, et le Toaster sonner. Les pages métier vivent dans la couche `pages`.
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { refetchOnWindowFocus: false, retry: 1 },
+  },
+});
+
+// Placeholder Deals — remplacé par la vraie page au Plan 04.
+function DealsPlaceholder() {
+  return (
+    <div className="text-sm text-slate-500">
+      La page Deals arrive au prochain plan.
+    </div>
+  );
+}
+
 export function App() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center gap-6 bg-slate-50 text-slate-900">
-      <div className="flex flex-col items-center gap-2">
-        <h1 className="text-4xl font-bold tracking-tight">Kessel — Foundations</h1>
-        <p className="text-slate-500">
-          Scaffold web (React + Vite + Feature-Sliced Design + shadcn/ui)
-        </p>
-      </div>
-      <Button>Foundations OK</Button>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<ContactsPage />} />
+            <Route path="/deals" element={<DealsPlaceholder />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+      <Toaster />
+    </QueryClientProvider>
   );
 }

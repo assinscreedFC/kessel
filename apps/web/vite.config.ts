@@ -10,11 +10,23 @@ export default defineConfig({
   root: __dirname,
   plugins: [react(), tailwindcss()],
   resolve: {
-    // Alias FSD : `@/shared/ui/button` -> src/shared/ui/button (convention shadcn).
-    alias: { "@": resolve(__dirname, "src") },
+    alias: {
+      // Alias FSD : `@/shared/ui/button` -> src/shared/ui/button (convention shadcn).
+      "@": resolve(__dirname, "src"),
+      // Contrat partagé front/back (@kessel/shared, type:shared) — résolu vers sa source TS.
+      // Le web ne dépend QUE de @kessel/shared (jamais d'un domaine comme @kessel/crm — FOUND-05).
+      "@kessel/shared": resolve(__dirname, "../../packages/shared/src/index.ts"),
+    },
   },
   build: {
     outDir: "dist",
     emptyOutDir: true,
+  },
+  server: {
+    // Dev : le web tourne sur un autre port que l'api (pas de enableCors côté NestJS).
+    // On proxy /api -> l'api NestJS pour rester en same-origin (cookie de session envoyé).
+    proxy: {
+      "/api": { target: "http://localhost:3000", changeOrigin: true },
+    },
   },
 });
