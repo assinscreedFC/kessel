@@ -4,6 +4,7 @@ import { AppShell } from "@/widgets/app-shell/ui/app-shell";
 import { ContactsPage } from "@/pages/contacts/ui/contacts-page";
 import { DealsPage } from "@/pages/deals/ui/deals-page";
 import { PricingPage } from "@/pages/pricing/ui/pricing-page";
+import { TemplatesPage } from "@/pages/templates/ui/templates-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -25,6 +26,7 @@ export function App() {
             <Route path="/" element={<ContactsPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/templates" element={<TemplatesPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
