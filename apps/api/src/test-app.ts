@@ -54,7 +54,7 @@ function pushPrismaSchema(databaseUrl: string): void {
   );
 }
 
-export async function bootTestApp(): Promise<BootedApp> {
+export async function bootTestApp(opts: { disableThrottle?: boolean } = {}): Promise<BootedApp> {
   const pg = await startPostgres();
 
   // Fixer DATABASE_URL AVANT tout import des modules db/auth (URL lue à la construction du module).
@@ -113,16 +113,20 @@ export async function bootTestApp(): Promise<BootedApp> {
     }
   }
 
-  // ThrottlerGuard désactivé en e2e : les specs seedent plusieurs projets via la route sign
-  // publique (limit=5/min) — le throttle teste la sécurité rate-limit, pas la logique métier.
-  // Les specs de throttling dédiées (si elles existent) bootent leur propre app sans ce stub.
-  const { ThrottlerGuard } = await import("@nestjs/throttler");
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+  // ThrottlerGuard désactivé UNIQUEMENT si opts.disableThrottle === true (opt-in).
+  // Par défaut le throttle reste actif — les specs qui testent le rate-limit (public-proposals
+  // test 7) l'exigent. Seules les specs qui seedent > 5 requêtes sign (project-status.spec.ts)
+  // doivent passer { disableThrottle: true }.
+  const builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(StorageService)
-    .useValue(new StorageStub())
-    .overrideGuard(ThrottlerGuard)
-    .useValue({ canActivate: () => true })
-    .compile();
+    .useValue(new StorageStub());
+
+  if (opts.disableThrottle) {
+    const { ThrottlerGuard } = await import("@nestjs/throttler");
+    builder.overrideGuard(ThrottlerGuard).useValue({ canActivate: () => true });
+  }
+
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ bodyParser: false, logger: false });
   // Même ValidationPipe global qu'en prod (main.ts).
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

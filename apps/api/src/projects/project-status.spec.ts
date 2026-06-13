@@ -126,7 +126,7 @@ describe("e2e statut + tâches", () => {
   }
 
   beforeAll(async () => {
-    app = await bootTestApp();
+    app = await bootTestApp({ disableThrottle: true });
 
     cookieA = await signup("status-A");
     await setupOrg(cookieA, "OrgStatusA");
