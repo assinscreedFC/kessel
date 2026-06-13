@@ -189,6 +189,7 @@ describe("e2e POST /api/public/proposals/:token/sign (DELIV-03/04 : signature PA
     const pg = await startPostgres();
     process.env.DATABASE_URL = pg.uri;
     process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "test-secret-not-for-prod";
+    process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod";
     process.env.BETTER_AUTH_URL = "http://localhost";
 
     // Cert de TEST réel (généré en tmpdir) -> SIGNING_P12_PATH/PASSPHRASE AVANT le boot. La signature

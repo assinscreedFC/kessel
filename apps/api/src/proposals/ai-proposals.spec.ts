@@ -198,6 +198,7 @@ describe("e2e /api/proposals/generate (PROP-04/05/06, AI-02 — real PG, generat
     const pg = await startPostgres();
     process.env.DATABASE_URL = pg.uri;
     process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "test-secret-not-for-prod";
+    process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod";
     process.env.BETTER_AUTH_URL = "http://localhost";
 
     pushPrismaSchema(pg.uri);

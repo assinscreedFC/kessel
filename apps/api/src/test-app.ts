@@ -57,6 +57,9 @@ export async function bootTestApp(): Promise<BootedApp> {
   process.env.DATABASE_URL = pg.uri;
   // Secret de test déterministe (jamais un vrai secret ; CLAUDE.md security).
   process.env.BETTER_AUTH_SECRET = process.env.BETTER_AUTH_SECRET ?? "test-secret-not-for-prod";
+  // STRIPE_SECRET_KEY requis au boot par ConfigModule (env.validation, SC4). Clé factice de test
+  // (jamais un vrai secret) pour que l'AppModule s'instancie en e2e — la prod l'exige toujours.
+  process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod";
   // baseURL trusted par Better Auth pour les cookies/CSRF en test.
   process.env.BETTER_AUTH_URL = "http://localhost";
 
