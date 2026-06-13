@@ -1,0 +1,4 @@
+# Forcer LF pour les scripts shell exécutés dans les conteneurs Alpine (#!/bin/sh casse en CRLF).
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile text eol=lf

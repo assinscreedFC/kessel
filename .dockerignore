@@ -1,0 +1,20 @@
+# Exclut du contexte de build Docker — accélère et évite de copier des secrets/artefacts.
+node_modules
+**/node_modules
+dist
+**/dist
+.nx
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.log
+tmp
+coverage
+**/*.spec.ts
+**/*.e2e-spec.ts
+.planning
+docs
+*.pdf
+*.md

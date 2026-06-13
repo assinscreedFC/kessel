@@ -5,10 +5,16 @@
   "projectType": "application",
   "tags": ["type:app", "scope:api"],
   "targets": {
-    "build": {
+    "typecheck": {
       "executor": "nx:run-commands",
       "options": {
         "command": "tsc -p apps/api/tsconfig.json --noEmit"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node apps/api/esbuild.mjs"
       }
     }
   }
