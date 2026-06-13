@@ -71,7 +71,7 @@ describe("project-isolation: Org A cannot read/write Org B projects/payments (FO
       data: { orgId: ORG_A, contactId: contactA.id, title: "Deal A", status: "WON" },
     });
     const proposalA = await basePrisma.proposal.create({
-      data: { orgId: ORG_A, dealId: dealA.id, title: "Proposal A", status: "ACCEPTED" },
+      data: { orgId: ORG_A, dealId: dealA.id, title: "Proposal A", bodyJson: {}, status: "SIGNED" },
     });
 
     const contactB = await basePrisma.contact.create({
@@ -81,7 +81,7 @@ describe("project-isolation: Org A cannot read/write Org B projects/payments (FO
       data: { orgId: ORG_B, contactId: contactB.id, title: "Deal B", status: "WON" },
     });
     const proposalB = await basePrisma.proposal.create({
-      data: { orgId: ORG_B, dealId: dealB.id, title: "Proposal B", status: "ACCEPTED" },
+      data: { orgId: ORG_B, dealId: dealB.id, title: "Proposal B", bodyJson: {}, status: "SIGNED" },
     });
 
     // Créer 1 Project par org (scopés via SCOPED_MODELS v1.1).

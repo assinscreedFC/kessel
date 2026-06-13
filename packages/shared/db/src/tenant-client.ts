@@ -36,6 +36,14 @@ const SCOPED_MODELS = new Set<string>([
   "Proposal",
   "ProposalTemplate",
   "PricingItem",
+  // v1.1 — orgId direct (SCOPED_MODELS enregistrement obligatoire pour isolation multi-tenant)
+  "Project",
+  "Payment",
+  "ApiKey",
+  "WebhookEndpoint",
+  // Task, WebhookDelivery, PortalSession sont VOLONTAIREMENT ABSENTS de ce Set :
+  // ces modèles n'ont PAS de colonne orgId (scopés via leur parent orgId-scopé, pattern QuoteLine v1.0).
+  // Les ajouter ici injecterait un orgId inexistant et casserait les requêtes (Pitfall 1, RESEARCH.md).
 ]);
 
 // Opérations dont le filtrage passe par `where` (lecture / mise à jour / suppression / agrégats).
