@@ -3,11 +3,13 @@ import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
 import { PdfService, ProposalsService } from "@kessel/proposals";
+import { AiProposalService, AnthropicProposalGenerator, PROPOSAL_GENERATOR } from "@kessel/ai";
 import { HealthController } from "./health/health.controller";
 import { SettingsController } from "./settings/settings.controller";
 import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
 import { ProposalsController } from "./proposals/proposals.controller";
+import { AiProposalsController } from "./proposals/ai-proposals.controller";
 import { TemplatesController } from "./proposals/templates.controller";
 import { PricingController } from "./pricing/pricing.controller";
 
@@ -25,9 +27,18 @@ import { PricingController } from "./pricing/pricing.controller";
     ContactsController,
     DealsController,
     ProposalsController,
+    AiProposalsController,
     TemplatesController,
     PricingController,
   ],
-  providers: [CrmService, PdfService, ProposalsService],
+  // PROPOSAL_GENERATOR (token DI Symbol) bindé à l'impl Anthropic en prod. En test e2e, on l'override
+  // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).
+  providers: [
+    CrmService,
+    PdfService,
+    ProposalsService,
+    AiProposalService,
+    { provide: PROPOSAL_GENERATOR, useClass: AnthropicProposalGenerator },
+  ],
 })
 export class AppModule {}

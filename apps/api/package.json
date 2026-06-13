@@ -7,6 +7,7 @@
     "build": "node esbuild.mjs"
   },
   "dependencies": {
+    "@kessel/ai": "workspace:*",
     "@kessel/auth": "workspace:*",
     "@kessel/crm": "workspace:*",
     "@kessel/db": "workspace:*",

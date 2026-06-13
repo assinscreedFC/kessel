@@ -11,3 +11,4 @@ export * from "./body-doc";
 export * from "./body-text";
 export * from "./proposal-tool-schema";
 export * from "./anthropic-proposal-generator";
+export * from "./ai-proposal.service";

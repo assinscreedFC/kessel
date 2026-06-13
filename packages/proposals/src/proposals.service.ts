@@ -180,12 +180,27 @@ export class ProposalsService {
     // IDOR (T-3-idor) : le deal doit appartenir à l'org (invisible sous forOrg sinon -> 404).
     await this.assertDealInOrg(orgId, input.dealId);
 
+    // SNAPSHOT atomique (T-3-snapshot) : si des `lines` sont fournies (ex. moteur IA Phase 4), on les
+    // crée dans le MÊME proposal.create (nested write, 1 seule écriture) — même forme de snapshot que
+    // addQuoteLine (description/quantity/unitPrice/position copiés, AUCUNE FK PricingItem). Pas de
+    // boucle addQuoteLine -> pas de N writes, pas de duplication de la logique snapshot/totaux.
+    // `lines` absent/vide -> comportement Phase 3 inchangé (proposition sans ligne).
+    const lines = input.lines ?? [];
+
     const row = await forOrg(orgId).proposal.create({
       data: {
         dealId: input.dealId,
         title: input.title,
         bodyJson: input.bodyJson as never,
         status: "DRAFT",
+        lines: {
+          create: lines.map((l) => ({
+            description: l.description,
+            quantity: l.quantity,
+            unitPrice: l.unitPrice,
+            position: l.position,
+          })),
+        },
       } as never,
       include: INCLUDE_LINES as never,
     });

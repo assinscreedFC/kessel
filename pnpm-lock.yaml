@@ -99,6 +99,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@kessel/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@kessel/auth':
         specifier: workspace:*
         version: link:../../packages/auth

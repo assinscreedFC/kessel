@@ -60,6 +60,11 @@ export interface CreateProposalInput {
   dealId: string;
   title: string;
   bodyJson: unknown;
+  // OPTIONNEL (rétro-compatible) : lignes de devis pré-remplies, persistées atomiquement dans le
+  // MÊME proposal.create (snapshot — mêmes règles que QuoteLineInput, quantity/unitPrice numériques).
+  // Les appelants Phase 3 qui ne passent pas `lines` créent une proposition sans ligne (comportement
+  // inchangé). Le moteur IA (Phase 4) passe les lignes générées ici.
+  lines?: QuoteLineInput[];
 }
 export interface CreateFromTemplateInput {
   templateId: string;
