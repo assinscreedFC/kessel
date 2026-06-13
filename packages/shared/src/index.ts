@@ -12,3 +12,7 @@ export * from "./tiptap-extensions";
 
 // Contrat de génération IA (Phase 4) : forme de la requête web (brief/dealId/templateId), framework-free.
 export * from "./contracts/ai";
+
+// Contrats de la boucle de données flywheel (Phase 6, AI-01) : OutcomeKind + ProposalOutcomeContext
+// (snapshot non-PII) + ProposalOutcomeDto, framework-free.
+export * from "./contracts/outcomes";
