@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 
@@ -7,6 +8,14 @@ import { AppModule } from "./app.module";
 // Le module @thallesp/nestjs-better-auth réinstalle ses propres parsers sur les routes non-auth.
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // ValidationPipe GLOBAL (Pitfall 3) — sans lui, les décorateurs class-validator des DTO sont
+  // décoratifs et ne valident RIEN (un amount: -5 passerait). Requis pour CRM-01/02 (V5 Input Validation).
+  //   whitelist: true   -> strip les propriétés non décorées (anti-overposting).
+  //   transform: true    -> instancie le DTO (plainToInstance via class-transformer) + coerce les types
+  //                         (ex: query string -> enum), nécessaire pour que @IsEnum/@IsNumber s'appliquent.
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   return app;

@@ -72,8 +72,12 @@ export async function bootTestApp(): Promise<BootedApp> {
 
   // 3. Boot NestJS (bodyParser:false). Import dynamique pour respecter l'ordre DATABASE_URL.
   const { NestFactory } = await import("@nestjs/core");
+  const { ValidationPipe } = await import("@nestjs/common");
   const { AppModule } = await import("./app.module");
   const app = await NestFactory.create(AppModule, { bodyParser: false, logger: false });
+  // Même ValidationPipe global qu'en prod (main.ts) — sinon les specs DTO ne testeraient pas le
+  // comportement réel (Pitfall 3 : un payload invalide passerait au lieu de renvoyer 400).
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(0); // port éphémère
   const server = app.getHttpServer();
   const address = server.address();
