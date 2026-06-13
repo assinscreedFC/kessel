@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 import type { DB } from "./types";
@@ -18,10 +19,23 @@ if (!DATABASE_URL) {
   );
 }
 
-export const basePrisma = new PrismaClient();
+// Prisma 7 (prisma-client-js) exige un driver adapter : l'URL ne vit plus dans le client runtime.
+// On donne à Prisma son PROPRE pool (via PrismaPg(connectionString)) et à Kysely le sien :
+// chacun possède et ferme son pool indépendamment (teardown déterministe, pas de double-end).
+export const basePrisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: DATABASE_URL }),
+});
 
-const pool = new Pool({ connectionString: DATABASE_URL });
+const kyselyPool = new Pool({ connectionString: DATABASE_URL });
 
 export const db = new Kysely<DB>({
-  dialect: new PostgresDialect({ pool }),
+  dialect: new PostgresDialect({ pool: kyselyPool }),
 });
+
+// Libère proprement TOUTES les ressources DB (Prisma + son pool, Kysely + son pool).
+// À appeler en teardown (tests, arrêt applicatif) AVANT de couper le datastore, pour éviter
+// qu'une connexion encore ouverte ne reçoive un 57P01 (terminating connection) à l'arrêt du serveur.
+export async function closeDb(): Promise<void> {
+  await basePrisma.$disconnect(); // ferme le pool interne de l'adapter Prisma
+  await db.destroy(); // ferme le pool pg de Kysely
+}
