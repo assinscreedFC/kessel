@@ -7,7 +7,8 @@
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
     "schema": "prisma/schema.prisma"
