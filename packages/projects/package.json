@@ -8,7 +8,6 @@
   "dependencies": {
     "@nestjs/common": "11.1.26",
     "@kessel/db": "workspace:*",
-    "@kessel/proposals": "workspace:*",
     "decimal.js": "10.6.0"
   }
 }

@@ -1,7 +1,9 @@
-import { lineTotal, grandTotal } from "@kessel/proposals";
-import type { BudgetSnapshot } from "@kessel/shared";
+import Decimal from "decimal.js";
+import type { BudgetSnapshot } from "./contracts/projects";
 
 // buildBudgetSnapshot (PROJ-02) — snapshot JSONB immuable calculé à la signature.
+// Déplacé dans @kessel/shared (FOUND-05) : casse le cycle projects↔proposals en rendant
+// la fonction auto-suffisante (decimal.js inline, aucun import de @kessel/proposals).
 //
 // RÈGLES D'IMMUABILITÉ :
 //  - [...lines] copie le tableau (sort() ne mute pas l'original)
@@ -10,7 +12,7 @@ import type { BudgetSnapshot } from "@kessel/shared";
 //  - currency = "EUR" hardcodé v1.1 (pas de multi-devise encore)
 //  - signedAt = Date.toISOString() string (sérialisable JSON, pas d'objet Date)
 
-type SnapshotLineInput = {
+export type SnapshotLineInput = {
   description: string;
   quantity: { toString(): string };
   unitPrice: { toString(): string };
@@ -29,12 +31,18 @@ export function buildBudgetSnapshot(lines: SnapshotLineInput[], signedAt: Date):
       label: l.description,
       qty,
       unitPrice: price,
-      lineTotal: lineTotal(qty, price),
+      lineTotal: new Decimal(qty).mul(new Decimal(price)).toFixed(2),
     };
   });
 
+  const total = snapshotLines.length === 0
+    ? "0.00"
+    : snapshotLines
+        .reduce((acc, l) => acc.plus(new Decimal(l.qty).mul(new Decimal(l.unitPrice))), new Decimal(0))
+        .toFixed(2);
+
   return {
-    total: grandTotal(snapshotLines.map((l) => ({ quantity: l.qty, unitPrice: l.unitPrice }))),
+    total,
     currency: "EUR",
     signedAt: signedAt.toISOString(),
     lines: snapshotLines,

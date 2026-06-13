@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { basePrisma, forOrg } from "@kessel/db";
-import { buildBudgetSnapshot } from "@kessel/projects";
+import { buildBudgetSnapshot } from "@kessel/shared";
 import { PdfService } from "./pdf.service";
 import { SigningService } from "./signing.service";
 import { StorageService } from "./storage.service";

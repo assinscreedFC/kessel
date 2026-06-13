@@ -26,3 +26,7 @@ export * from "./vat";
 // Contrats module Project (Phase 2) : ProjectStatus + BudgetSnapshot/ProjectDto/TaskDto + inputs,
 // framework-free, dépendables par api ET web (FOUND-05).
 export * from "./contracts/projects";
+
+// Helper budget figé (PROJ-02, FOUND-05) : snapshot JSONB immuable calculé à la signature.
+// Déplacé depuis @kessel/projects pour casser le cycle projects↔proposals.
+export * from "./budget-snapshot";
