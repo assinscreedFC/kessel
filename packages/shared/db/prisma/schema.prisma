@@ -42,6 +42,9 @@ model Organization {
   notes     OrgNote[]
   contacts  Contact[]
   deals     Deal[]
+  proposals         Proposal[]
+  proposalTemplates ProposalTemplate[]
+  pricingItems      PricingItem[]
 
   @@map("organization")
 }
@@ -102,8 +105,88 @@ model Deal {
   updatedAt DateTime   @updatedAt
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   contact   Contact      @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  proposals Proposal[]
 
   @@index([orgId])
   @@index([contactId])
   @@index([orgId, status])
+}
+
+// === Propositions & tarifs (Phase 3) ===
+// ProposalStatus : enum volontairement réduit à DRAFT en Phase 3. SENT/SIGNED viendront en Phase 5
+// (livraison & e-sign) — NE PAS les ajouter maintenant (YAGNI ; les phases suivantes les introduiront
+// avec leur logique de transition).
+enum ProposalStatus {
+  DRAFT
+}
+
+// Proposal : corps de proposition rédigé (PROP-01). orgId FK -> Organization.id canonique.
+// dealId FK -> Deal (une proposition appartient à un deal). bodyJson = document ProseMirror/Tiptap
+// stocké en JSONB — c'est la SOURCE DE VÉRITÉ du corps (le PDF en est un rendu, pas l'inverse).
+// Ajouté à SCOPED_MODELS (tenant-client.ts) + test d'isolation cross-tenant obligatoire.
+model Proposal {
+  id        String         @id @default(uuid())
+  orgId     String // FK -> Organization.id == organization.id (Better Auth)
+  dealId    String
+  title     String
+  bodyJson  Json // JSONB — document ProseMirror/Tiptap (source de vérité du corps)
+  status    ProposalStatus @default(DRAFT)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  deal      Deal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  lines     QuoteLine[]
+
+  @@index([orgId])
+  @@index([dealId])
+}
+
+// ProposalTemplate : modèle réutilisable pour démarrer une proposition (PROP-02). orgId scopé.
+// "Démarrer depuis template" copie bodyJson dans une nouvelle Proposal (copie serveur, pas de FK).
+// Ajouté à SCOPED_MODELS + test d'isolation cross-tenant.
+model ProposalTemplate {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  bodyJson  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// PricingItem : grille de tarifs (catalogue de prestations, PROP-03). orgId scopé.
+// unit est un texte libre nullable ("jour" | "heure" | "forfait"). À l'ajout d'une QuoteLine depuis
+// la grille, name/unitPrice sont COPIÉS (snapshot) — modifier la grille ne change jamais un devis.
+// Ajouté à SCOPED_MODELS + test d'isolation cross-tenant.
+model PricingItem {
+  id        String   @id @default(uuid())
+  orgId     String
+  name      String
+  unitPrice Decimal  @db.Decimal(12, 2)
+  unit      String? // "jour" | "heure" | "forfait" — texte libre nullable
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+}
+
+// QuoteLine : ligne de devis chiffré rattachée à une Proposal (PROP-03). PAS de colonne orgId :
+// scopée via son parent Proposal (lui-même orgId-scopé). Tout accès aux lignes passe TOUJOURS par
+// une Proposal forOrg-scopée — QuoteLine n'est donc PAS dans SCOPED_MODELS (cf. tenant-client.ts).
+// SNAPSHOT (non négociable) : description/unitPrice copiés de PricingItem à l'ajout. AUCUNE FK vers
+// PricingItem — un devis envoyé/signé ne doit jamais muter parce que la grille a changé.
+// Total ligne = quantity × unitPrice et total devis = somme : CALCULÉS (decimal.js), jamais stockés.
+model QuoteLine {
+  id          String  @id @default(uuid())
+  proposalId  String
+  description String
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  position    Int
+  proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
 }

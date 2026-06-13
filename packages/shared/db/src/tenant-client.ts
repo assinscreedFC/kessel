@@ -19,7 +19,20 @@ import { basePrisma } from "./client";
 // Organization (mappée @@map("organization") sur la table canonique Better Auth) n'est PAS scopée
 // par orgId — c'est la table d'identité org elle-même. Les futurs modèles métier portant un orgId
 // FK vers organization.id (CRM, propositions...) s'ajoutent ici.
-const SCOPED_MODELS = new Set<string>(["OrgNote", "Contact", "Deal"]);
+//
+// QuoteLine est VOLONTAIREMENT ABSENT de ce Set : ce modèle n'a PAS de colonne orgId. Il est scopé
+// via son parent Proposal (QuoteLine.proposalId -> Proposal, elle-même orgId-scopée). L'accès aux
+// lignes passe TOUJOURS par une Proposal forOrg-scopée (ex. proposal.findUnique({ include: { lines }}))
+// — jamais par un QuoteLine.findMany direct. L'ajouter ici injecterait un orgId inexistant sur la
+// table et casserait les requêtes. L'isolation cross-tenant de QuoteLine est prouvée via le parent.
+const SCOPED_MODELS = new Set<string>([
+  "OrgNote",
+  "Contact",
+  "Deal",
+  "Proposal",
+  "ProposalTemplate",
+  "PricingItem",
+]);
 
 // Opérations dont le filtrage passe par `where` (lecture / mise à jour / suppression / agrégats).
 const WHERE_SCOPED_OPERATIONS = new Set<string>([

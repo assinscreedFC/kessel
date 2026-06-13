@@ -103,4 +103,127 @@ describe("schema métier multi-tenant (FOUND-01, real Postgres)", () => {
         .execute(),
     ).rejects.toThrow();
   });
+
+  // === Smoke des 4 modèles Phase 3 (PROP-01/02/03) — prouve que le push a créé les tables ===
+  // Le push (beforeAll) applique le schéma sur le Postgres réel : ces inserts/joins échoueraient si
+  // une table manquait. Vérifie aussi : FK QuoteLine -> Proposal cascade ; dealId orphelin rejeté.
+  //
+  // NB : `@updatedAt` (Prisma) est géré par le client Prisma, PAS par un défaut DB. Comme ces smokes
+  // insèrent via Kysely brut, on fournit `updatedAt` explicitement (colonne NOT NULL sans défaut DB).
+  // En applicatif, c'est forOrg(...) (Prisma) qui le renseigne automatiquement.
+  const now = new Date();
+
+  it("crée une Proposal rattachée à un Deal (les tables Proposal/Deal/Contact existent réellement)", async () => {
+    // Un Deal a besoin d'un Contact (FK Restrict). Contact a besoin d'une org (déjà org-A).
+    await db
+      .insertInto("Contact")
+      .values({ id: "contact-p", orgId: "org-A", name: "Client A", email: "c@org-a.test", updatedAt: now })
+      .execute();
+    await db
+      .insertInto("Deal")
+      .values({ id: "deal-p", orgId: "org-A", contactId: "contact-p", title: "Deal P", updatedAt: now })
+      .execute();
+    await db
+      .insertInto("Proposal")
+      .values({
+        id: "prop-1",
+        orgId: "org-A",
+        dealId: "deal-p",
+        title: "Proposition 1",
+        bodyJson: JSON.stringify({ type: "doc", content: [] }),
+        updatedAt: now,
+      })
+      .execute();
+
+    const prop = await db
+      .selectFrom("Proposal")
+      .selectAll()
+      .where("id", "=", "prop-1")
+      .executeTakeFirst();
+    expect(prop).toBeDefined();
+    expect(prop?.status).toBe("DRAFT"); // défaut de l'enum ProposalStatus
+    expect(prop?.dealId).toBe("deal-p");
+  });
+
+  it("rejette une Proposal dont le dealId ne référence aucun Deal (FK orphelin impossible)", async () => {
+    await expect(
+      db
+        .insertInto("Proposal")
+        .values({
+          id: "prop-orphan",
+          orgId: "org-A",
+          dealId: "deal-INEXISTANT",
+          title: "orpheline",
+          bodyJson: JSON.stringify({ type: "doc", content: [] }),
+          updatedAt: now,
+        })
+        .execute(),
+    ).rejects.toThrow();
+  });
+
+  it("crée un ProposalTemplate (la table existe) et le relit", async () => {
+    await db
+      .insertInto("ProposalTemplate")
+      .values({
+        id: "tpl-1",
+        orgId: "org-A",
+        name: "Template offre",
+        bodyJson: JSON.stringify({ type: "doc", content: [] }),
+        updatedAt: now,
+      })
+      .execute();
+    const tpl = await db
+      .selectFrom("ProposalTemplate")
+      .selectAll()
+      .where("id", "=", "tpl-1")
+      .executeTakeFirst();
+    expect(tpl?.name).toBe("Template offre");
+  });
+
+  it("crée un PricingItem avec unitPrice Decimal (la table existe)", async () => {
+    await db
+      .insertInto("PricingItem")
+      .values({ id: "pi-1", orgId: "org-A", name: "Jour de dev", unitPrice: "800.00", unit: "jour", updatedAt: now })
+      .execute();
+    const pi = await db
+      .selectFrom("PricingItem")
+      .selectAll()
+      .where("id", "=", "pi-1")
+      .executeTakeFirst();
+    expect(pi?.name).toBe("Jour de dev");
+    expect(Number(pi?.unitPrice)).toBe(800);
+    expect(pi?.unit).toBe("jour");
+  });
+
+  it("crée une QuoteLine rattachée à la Proposal et la cascade delete suit la Proposal (FK + cascade)", async () => {
+    // QuoteLine = snapshot (pas de FK vers PricingItem) : description/unitPrice copiés à la main.
+    await db
+      .insertInto("QuoteLine")
+      .values({
+        id: "ql-1",
+        proposalId: "prop-1",
+        description: "Jour de dev",
+        quantity: "3",
+        unitPrice: "800.00",
+        position: 0,
+      })
+      .execute();
+
+    const line = await db
+      .selectFrom("QuoteLine")
+      .selectAll()
+      .where("id", "=", "ql-1")
+      .executeTakeFirst();
+    expect(line?.proposalId).toBe("prop-1");
+    expect(Number(line?.quantity)).toBe(3);
+
+    // Cascade : supprimer la Proposal supprime ses QuoteLine.
+    await db.deleteFrom("Proposal").where("id", "=", "prop-1").execute();
+    const afterCascade = await db
+      .selectFrom("QuoteLine")
+      .selectAll()
+      .where("id", "=", "ql-1")
+      .executeTakeFirst();
+    expect(afterCascade).toBeUndefined();
+  });
 });
