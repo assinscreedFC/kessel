@@ -96,6 +96,9 @@ importers:
       '@kessel/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@kessel/crm':
+        specifier: workspace:*
+        version: link:../../packages/crm
       '@kessel/db':
         specifier: workspace:*
         version: link:../../packages/shared/db

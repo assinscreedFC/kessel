@@ -14,6 +14,8 @@ export default defineConfig({
     alias: {
       "@kessel/auth": resolve(repoRoot, "packages/auth/src/index.ts"),
       "@kessel/db": resolve(repoRoot, "packages/shared/db/src/index.ts"),
+      "@kessel/crm": resolve(repoRoot, "packages/crm/src/index.ts"),
+      "@kessel/shared": resolve(repoRoot, "packages/shared/src/index.ts"),
     },
   },
   test: {

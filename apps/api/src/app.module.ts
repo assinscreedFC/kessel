@@ -1,14 +1,26 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
+import { CrmService } from "@kessel/crm";
 import { HealthController } from "./health/health.controller";
 import { SettingsController } from "./settings/settings.controller";
+import { ContactsController } from "./contacts/contacts.controller";
+import { DealsController } from "./deals/deals.controller";
 
 // App shell NestJS (FOUND-02/03). AuthModule.forRoot monte l'instance Better Auth (source
 // canonique org) + installe un AuthGuard GLOBAL : toutes les routes sont protégées par défaut.
 // @AllowAnonymous() ouvre explicitement une route ; @OrgRoles([...]) restreint par rôle org.
+//
+// CRM (Phase 2) : ContactsController + DealsController (api/contacts, api/deals) injectent CrmService
+// (@kessel/crm), enregistré comme provider pour que le DI NestJS le résolve.
 @Module({
   imports: [AuthModule.forRoot({ auth })],
-  controllers: [HealthController, SettingsController],
+  controllers: [
+    HealthController,
+    SettingsController,
+    ContactsController,
+    DealsController,
+  ],
+  providers: [CrmService],
 })
 export class AppModule {}
