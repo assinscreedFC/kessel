@@ -6,3 +6,4 @@ export * from "./token";
 export * from "./pdf-template";
 export * from "./pdf.service";
 export * from "./proposals.service";
+export * from "./delivery.service";

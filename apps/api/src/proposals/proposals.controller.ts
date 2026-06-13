@@ -11,7 +11,12 @@ import {
 } from "@nestjs/common";
 import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
-import { ProposalsService } from "@kessel/proposals";
+import {
+  DeliveryService,
+  ProposalsService,
+  type ProposalEventDto,
+  type SendProposalResult,
+} from "@kessel/proposals";
 import type { ProposalDto } from "@kessel/shared";
 import { requireOrg } from "../shared/require-org";
 import { CreateProposalDto } from "./dto/create-proposal.dto";
@@ -31,6 +36,7 @@ export class ProposalsController {
   // @Inject explicite : esbuild (build + vitest) n'émet pas design:paramtypes -> token DI requis.
   constructor(
     @Inject(ProposalsService) private readonly proposals: ProposalsService,
+    @Inject(DeliveryService) private readonly delivery: DeliveryService,
   ) {}
 
   @Get()
@@ -52,6 +58,32 @@ export class ProposalsController {
       type: "application/pdf",
       disposition: `attachment; filename="proposition-${id}.pdf"`,
     });
+  }
+
+  // DELIV-01 : envoie la proposition (génère le token, stocke son hash, status SENT + sentAt + event
+  // SENT — via DeliveryService forOrg). Renvoie { token, url } pour que le sender copie le lien public.
+  // POST -> pas de collision de route avec :id (verbe distinct), mais groupé ici par lisibilité.
+  @Post(":id/send")
+  async send(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+  ): Promise<SendProposalResult & { url: string | null }> {
+    const result = await this.delivery.sendProposal(requireOrg(session), id);
+    // url = origine publique + /p/:token. Si le token n'est pas régénéré (re-send), url = null
+    // (le client garde le lien existant). APP_ORIGIN sinon dérivé de BETTER_AUTH_URL (sans secret).
+    const origin = (process.env.APP_ORIGIN || process.env.BETTER_AUTH_URL || "").replace(/\/+$/, "");
+    const url = result.token ? `${origin}/p/${result.token}` : null;
+    return { ...result, url };
+  }
+
+  // DELIV-02 : timeline des events (SENT/OPENED/VIEWED) d'une proposition de l'org. Déclaré AVANT
+  // :id pour que "/:id/events" ne soit pas capté par la route paramétrée "/:id".
+  @Get(":id/events")
+  async events(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+  ): Promise<ProposalEventDto[]> {
+    return this.delivery.listEvents(requireOrg(session), id);
   }
 
   @Get(":id")

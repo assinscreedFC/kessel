@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
-import { PdfService, ProposalsService } from "@kessel/proposals";
+import { DeliveryService, PdfService, ProposalsService } from "@kessel/proposals";
 import { AiProposalService, AnthropicProposalGenerator, PROPOSAL_GENERATOR } from "@kessel/ai";
 import { HealthController } from "./health/health.controller";
 import { SettingsController } from "./settings/settings.controller";
@@ -37,6 +37,7 @@ import { PricingController } from "./pricing/pricing.controller";
     CrmService,
     PdfService,
     ProposalsService,
+    DeliveryService,
     AiProposalService,
     { provide: PROPOSAL_GENERATOR, useClass: AnthropicProposalGenerator },
   ],
