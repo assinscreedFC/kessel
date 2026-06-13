@@ -16,3 +16,9 @@ export * from "./contracts/ai";
 // Contrats de la boucle de données flywheel (Phase 6, AI-01) : OutcomeKind + ProposalOutcomeContext
 // (snapshot non-PII) + ProposalOutcomeDto, framework-free.
 export * from "./contracts/outcomes";
+
+// Helpers monétaires partagés (Phase 1) : toCents/fromCents via decimal.js, zéro dérive float.
+export * from "./money";
+
+// Helper TVA partagé (Phase 1) : computeVat ROUND_HALF_UP par groupe — socle TVA UE Phase 7.
+export * from "./vat";
