@@ -29,6 +29,7 @@ const alias = {
   "@kessel/auth": resolve(repoRoot, "packages/auth/src/index.ts"),
   "@kessel/shared": resolve(repoRoot, "packages/shared/src/index.ts"),
   "@kessel/crm": resolve(repoRoot, "packages/crm/src/index.ts"),
+  "@kessel/proposals": resolve(repoRoot, "packages/proposals/src/index.ts"),
 };
 
 // Plugin SWC : esbuild N'ÉMET PAS design:paramtypes (emitDecoratorMetadata non supporté) — sans cela,

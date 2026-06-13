@@ -10,6 +10,7 @@
     "@kessel/auth": "workspace:*",
     "@kessel/crm": "workspace:*",
     "@kessel/db": "workspace:*",
+    "@kessel/proposals": "workspace:*",
     "@nestjs/common": "11.1.26",
     "@nestjs/core": "11.1.26",
     "@nestjs/platform-express": "11.1.26",

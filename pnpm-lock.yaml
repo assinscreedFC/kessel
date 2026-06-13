@@ -108,6 +108,9 @@ importers:
       '@kessel/db':
         specifier: workspace:*
         version: link:../../packages/shared/db
+      '@kessel/proposals':
+        specifier: workspace:*
+        version: link:../../packages/proposals
       '@nestjs/common':
         specifier: 11.1.26
         version: 11.1.26(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.1)
