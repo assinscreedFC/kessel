@@ -4,6 +4,7 @@ import { TableContainer } from "@/shared/ui/table";
 import { useProject, useProjectTasks } from "@/entities/project/api";
 import { TaskItem } from "@/features/manage-tasks/ui/task-item";
 import { ProjectStatusControl } from "@/features/update-project-status/ui/project-status-control";
+import { PaymentStatusSection } from "./payment-status-section";
 
 // Page Détail Projet (couche `pages`). Couvre SC4/SC5 : budget figé + liste de tâches optimistic.
 // Layout : lien retour, header (titre + ProjectStatusControl), ligne budget, tableau tâches.
@@ -60,6 +61,9 @@ export function ProjectDetailPage() {
           {dateFormatter.format(new Date(project.budgetSnapshot.signedAt))}
         </p>
       ) : null}
+
+      {/* Section paiements (PAY-05) — acompte/solde avec badge statut */}
+      {project && <PaymentStatusSection payments={project.payments ?? []} />}
 
       {/* Liste de tâches */}
       <TableContainer>
