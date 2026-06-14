@@ -18,3 +18,5 @@ export {
   hashPaymentToken,
 } from "./stripe.tokens";
 export type { StripeLike } from "./stripe.tokens";
+
+export { stripeProvider } from "./stripe.provider";

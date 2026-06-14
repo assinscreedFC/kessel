@@ -23,6 +23,7 @@ export interface StripeLike {
     create(params: {
       amount: number;
       currency: string;
+      automatic_payment_methods?: { enabled: boolean; allow_redirects?: "never" | "always" };
       metadata?: Record<string, string>;
     }): Promise<{ id: string; client_secret: string | null }>;
   };
