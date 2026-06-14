@@ -85,11 +85,19 @@ export interface SignProposalInput {
 
 // Résultat d'une signature : confirmation minimale renvoyée au client public (pas de PII serveur,
 // pas de clé MinIO ni d'orgId/dealId bruts). `alreadySigned` distingue le cas idempotent.
+// Les champs optionnels (projectId, grandTotal, depositPercent, orgId) sont renseignés UNIQUEMENT
+// sur first-sign (alreadySigned === false) pour permettre à l'orchestrateur apps/api de créer
+// le PaymentIntent APRÈS la transaction — sans jamais importer @kessel/payments ici (FOUND-05).
 export interface SignProposalResult {
   signerName: string;
   signedAt: string;
   status: string;
   alreadySigned: boolean;
+  // Données acompte (first-sign uniquement — absentes si alreadySigned=true ou depositPercent=null)
+  projectId?: string;
+  grandTotal?: string;
+  depositPercent?: number;
+  orgId?: string;
 }
 
 const PUBLIC_INCLUDE_LINES = { lines: { orderBy: { position: "asc" } } } as const;
@@ -282,7 +290,20 @@ export class DeliveryService {
   ): Promise<SignProposalResult> {
     const proposal = (await basePrisma.proposal.findUnique({
       where: { shareTokenHash: hashToken(token) },
-    })) as { id: string; orgId: string; dealId: string; status: string; signedAt: Date | null } | null;
+      include: {
+        // Charger defaultDepositPercent de l'org pour le calcul effectif de l'acompte (PAY-01).
+        // Fait partie du même findUnique pour éviter un aller-retour DB supplémentaire.
+        org: { select: { defaultDepositPercent: true } },
+      } as never,
+    })) as {
+      id: string;
+      orgId: string;
+      dealId: string;
+      status: string;
+      signedAt: Date | null;
+      depositPercent: number | null;
+      org: { defaultDepositPercent: number };
+    } | null;
     if (!proposal) {
       throw new NotFoundException();
     }
@@ -296,6 +317,9 @@ export class DeliveryService {
         alreadySigned: true,
       };
     }
+
+    // Pourcentage d'acompte effectif : override par proposition, sinon défaut org (PAY-01).
+    const effectiveDepositPercent = proposal.depositPercent ?? proposal.org.defaultDepositPercent;
 
     // 1. Générer le PDF À SIGNER (PdfService, données résolues par hash en interne — jamais exposées).
     const pdf = await this.renderPdfForSigning(proposal.id, proposal.orgId);
@@ -345,8 +369,11 @@ export class DeliveryService {
     const budgetSnapshot = buildBudgetSnapshot(outcomeRow?.lines ?? [], signedAt);
 
     // 5. UNE $transaction atomique : Proposal SIGNED + Signature + deal WON + ProposalOutcome(WON).
+    // La transaction retourne le projectId créé pour que l'orchestrateur apps/api puisse
+    // créer le PaymentIntent APRÈS le commit — hors $transaction (FOUND-05 / PAY-01 resilience).
+    let createdProjectId: string;
     try {
-      await basePrisma.$transaction(async (tx) => {
+      const txResult = await basePrisma.$transaction(async (tx) => {
         await tx.proposal.update({
           // garde concurrente : un 2e sign simultané touche 0 ligne -> P2025 -> no-op (catch).
           where: { id: proposal.id, status: { not: "SIGNED" } } as never,
@@ -405,7 +432,9 @@ export class DeliveryService {
               done: false,
             })),
         });
+        return { projectId: project.id };
       });
+      createdProjectId = txResult.projectId;
     } catch (err: unknown) {
       // P2025 (Record not found) = la garde `status not SIGNED` a touché 0 ligne : une signature
       // concurrente a gagné la course -> no-op idempotent (pas une erreur côté client).
@@ -423,11 +452,25 @@ export class DeliveryService {
       throw err;
     }
 
+    // Calculer le grandTotal à partir des lignes (déjà disponibles dans outcomeRow).
+    // Fourni à l'orchestrateur apps/api pour le calcul du montant acompte (toCents côté payments).
+    const computedGrandTotal = grandTotal(
+      (outcomeRow?.lines ?? []).map((l) => ({
+        quantity: l.quantity.toString(),
+        unitPrice: l.unitPrice.toString(),
+      })),
+    );
+
     return {
       signerName: input.signerName,
       signedAt: signedAt.toISOString(),
       status: "SIGNED",
       alreadySigned: false,
+      // Données acompte pour l'orchestrateur apps/api (PAY-01) — JAMAIS transmises au client public.
+      projectId: createdProjectId,
+      grandTotal: computedGrandTotal,
+      depositPercent: effectiveDepositPercent,
+      orgId: proposal.orgId,
     };
   }
 
