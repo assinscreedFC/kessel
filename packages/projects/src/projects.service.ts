@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from "@nestjs/common";
 import { db, forOrg, basePrisma } from "@kessel/db";
-import type { ProjectDto, TaskDto, ProjectStatus, BudgetSnapshot } from "@kessel/shared";
+import type { ProjectDto, PaymentDto, TaskDto, ProjectStatus, BudgetSnapshot } from "@kessel/shared";
 
 // ProjectsService — domaine Project (@kessel/projects, type:domain scope:projects).
 //
@@ -29,11 +29,13 @@ export class ProjectsService {
       .orderBy("createdAt", "desc")
       .selectAll()
       .execute();
-    return rows.map(toProjectDto);
+    return rows.map((row) => toProjectDto(row));
   }
 
   // PROJ-04 : un projet (détail) — null si cross-org (→ 404 au controller).
   // LECTURE Kysely : double WHERE orgId+id → cross-org renvoie undefined → null.
+  // PAY-05 : inclut les payments org-scopés (WHERE orgId + projectId) pour le dashboard agence.
+  // T-3-iso-dash : lecture Kysely scopée WHERE orgId — cross-org retourne 0 payments, pas de leak.
   async getProject(orgId: string, id: string): Promise<ProjectDto | null> {
     const row = await db
       .selectFrom("Project")
@@ -41,7 +43,27 @@ export class ProjectsService {
       .where("id", "=", id)
       .selectAll()
       .executeTakeFirst();
-    return row ? toProjectDto(row) : null;
+    if (!row) return null;
+
+    // PAY-05 : paiements org-scopés triés par date de création (DEPOSIT d'abord, BALANCE ensuite).
+    // Double WHERE orgId + projectId = isolation multi-tenant prouvée (T-3-iso-dash).
+    const paymentRows = await db
+      .selectFrom("Payment")
+      .where("projectId", "=", id)
+      .where("orgId", "=", orgId)
+      .orderBy("createdAt", "asc")
+      .selectAll()
+      .execute();
+
+    const payments: PaymentDto[] = paymentRows.map((p) => ({
+      id: p.id,
+      kind: p.kind as "DEPOSIT" | "BALANCE",
+      status: p.status as "PENDING" | "PAID" | "FAILED",
+      amountCents: p.amountCents,
+      currency: p.currency,
+    }));
+
+    return toProjectDto(row, payments);
   }
 
   // PROJ-03/04 : tâches d'un projet — vérifie l'appartenance org via le projet parent.
@@ -147,7 +169,7 @@ type TaskRow = {
   position: number;
 };
 
-function toProjectDto(row: ProjectRow): ProjectDto {
+function toProjectDto(row: ProjectRow, payments: PaymentDto[] = []): ProjectDto {
   return {
     id: row.id,
     title: row.title,
@@ -156,6 +178,7 @@ function toProjectDto(row: ProjectRow): ProjectDto {
     dealId: row.dealId,
     createdAt: row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
     updatedAt: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : String(row.updatedAt),
+    payments,
   };
 }
 

@@ -32,6 +32,16 @@ export interface BudgetSnapshot {
   lines: BudgetSnapshotLine[];
 }
 
+// Shape d'un paiement dans le détail projet (PAY-05, dashboard agence).
+// Exposé uniquement sur GET /api/projects/:id (détail) — pas sur la liste.
+export interface PaymentDto {
+  id: string;
+  kind: "DEPOSIT" | "BALANCE";
+  status: "PENDING" | "PAID" | "FAILED";
+  amountCents: number;
+  currency: string;
+}
+
 // Shape de réponse projet au boundary API.
 export interface ProjectDto {
   id: string;
@@ -41,6 +51,7 @@ export interface ProjectDto {
   dealId: string;
   createdAt: string;
   updatedAt: string;
+  payments: PaymentDto[]; // PAY-05 : statuts de paiement pour le dashboard agence
 }
 
 // Shape de réponse tâche au boundary API.
