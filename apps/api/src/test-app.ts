@@ -54,7 +54,7 @@ function pushPrismaSchema(databaseUrl: string): void {
   );
 }
 
-export async function bootTestApp(opts: { disableThrottle?: boolean } = {}): Promise<BootedApp> {
+export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClient?: object } = {}): Promise<BootedApp> {
   const pg = await startPostgres();
 
   // Fixer DATABASE_URL AVANT tout import des modules db/auth (URL lue à la construction du module).
@@ -94,6 +94,7 @@ export async function bootTestApp(opts: { disableThrottle?: boolean } = {}): Pro
   const { ValidationPipe } = await import("@nestjs/common");
   const { AppModule } = await import("./app.module");
   const { StorageService } = await import("@kessel/proposals");
+  const { STRIPE_CLIENT } = await import("@kessel/payments");
   const { Test } = await import("@nestjs/testing");
 
   // Stub MinIO en mémoire (putSignedPdf capture les bytes ; getSignedPdf les restitue).
@@ -119,7 +120,23 @@ export async function bootTestApp(opts: { disableThrottle?: boolean } = {}): Pro
   // doivent passer { disableThrottle: true }.
   const builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(StorageService)
-    .useValue(new StorageStub());
+    .useValue(new StorageStub())
+    // Override STRIPE_CLIENT : en e2e on ne fait jamais d'appel réseau Stripe réel.
+    // opts.stripeClient permet aux specs de fournir leur propre stub (passing ou failing).
+    // Défaut : stub no-op qui lève une erreur (sécurité — force les specs à fournir un stub explicite
+    // si elles testent PAY-01, sinon createDeposit retourne depositPending:true sans ligne Payment).
+    .overrideProvider(STRIPE_CLIENT)
+    .useValue(
+      opts.stripeClient ?? {
+        paymentIntents: {
+          create: async () => { throw new Error("STRIPE_CLIENT not configured in test — pass stripeClient option to bootTestApp"); },
+        },
+        webhooks: {
+          constructEvent: () => { throw new Error("STRIPE_CLIENT not configured in test"); },
+          generateTestHeaderString: () => "not-configured",
+        },
+      },
+    );
 
   if (opts.disableThrottle) {
     const { ThrottlerGuard } = await import("@nestjs/throttler");

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { bootTestApp } from "../test-app";
 import { STRIPE_CLIENT } from "@kessel/payments";
 import { toCents } from "@kessel/shared";
@@ -86,8 +86,8 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
   }
 
   beforeAll(async () => {
-    app = await bootTestApp({ disableThrottle: true });
-    // Override STRIPE_CLIENT avec le stub (pas de réseau Stripe en e2e)
+    app = await bootTestApp({ disableThrottle: true, stripeClient: stripeStub });
+    // Vérifier que le STRIPE_CLIENT est bien résolu vers notre stub (pas le vrai SDK Stripe)
     app._nestApp.get(STRIPE_CLIENT); // assure que le token est résolu
     cookie = await signup("dep-resilience");
     orgId = await setupOrg(cookie, "DepResilienceOrg");
@@ -101,7 +101,7 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     const dealRes = await fetch(`${app.baseUrl}/api/deals`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ contactId: contact.id, title: "Deal paiement" }),
+      body: JSON.stringify({ contactId: contact.id, title: "Deal paiement", status: "LEAD" }),
     });
     const deal = (await dealRes.json()) as { id: string };
     dealId = deal.id;
@@ -125,7 +125,7 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ description: "Prestation", quantity: "3", unitPrice: "200.00", position: 1 }),
+      body: JSON.stringify({ description: "Prestation", quantity: 3, unitPrice: 200.00, position: 1 }),
     });
 
     // Envoyer la proposition (transition DRAFT → SENT)
@@ -140,7 +140,7 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     const signRes = await fetch(`${app.baseUrl}/api/public/proposals/${token}/sign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signerName: "Jean Dupont", signerEmail: "jean@dupont.fr" }),
+      body: JSON.stringify({ signerName: "Jean Dupont", signerEmail: "jean@dupont.fr", consent: true }),
     });
     expect(signRes.status).toBe(200);
 
@@ -163,20 +163,11 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
   });
 
   it("T-3-resilience: si Stripe échoue, sign retourne 200 et aucun Payment n'est créé", async () => {
-    // Override le stub pour simuler une erreur Stripe
-    const failingStripeStub = {
-      ...stripeStub,
-      paymentIntents: {
-        create: async (_params: unknown) => {
-          throw new Error("Stripe network error (simulé)");
-        },
-      },
-    };
-
-    // Récupérer le provider STRIPE_CLIENT du module NestJS et le remplacer temporairement
-    // Note: Plan 02 implémente l'override via .overrideProvider() au boot.
-    // En Wave 0 ce test échoue car le service n'est pas câblé — RED attendu.
-    const _ = failingStripeStub; // référence pour éviter lint unused
+    // Simuler une erreur Stripe via spy sur le stub partagé (injecté dans l'app via bootTestApp).
+    // vi.spyOn remplace temporairement paymentIntents.create pour ce test uniquement.
+    const spy = vi.spyOn(stripeStub.paymentIntents, "create").mockRejectedValueOnce(
+      new Error("Stripe network error (simulé)"),
+    );
 
     // Créer une nouvelle proposition pour ce test
     const propRes = await fetch(`${app.baseUrl}/api/proposals`, {
@@ -190,7 +181,7 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ description: "Forfait", quantity: "1", unitPrice: "1000.00", position: 1 }),
+      body: JSON.stringify({ description: "Forfait", quantity: 1, unitPrice: 1000.00, position: 1 }),
     });
 
     const sendRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/send`, {
@@ -204,7 +195,7 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     const signRes = await fetch(`${app.baseUrl}/api/public/proposals/${token}/sign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signerName: "Jane Doe", signerEmail: "jane@doe.fr" }),
+      body: JSON.stringify({ signerName: "Jane Doe", signerEmail: "jane@doe.fr", consent: true }),
     });
     // Résilience : sign retourne 200 même si Stripe échoue
     expect(signRes.status).toBe(200);
@@ -216,5 +207,8 @@ describe("e2e deposit resilience (PAY-01 / T-3-amount / T-3-resilience — RED W
     // Le Project existe toujours
     const project = await app.basePrisma.project.findFirst({ where: { orgId } });
     expect(project).toBeTruthy();
+
+    // Nettoyage : restaurer le stub à son comportement par défaut (passing)
+    spy.mockRestore();
   });
 });

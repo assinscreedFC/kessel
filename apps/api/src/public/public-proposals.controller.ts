@@ -18,8 +18,8 @@ import {
   DeliveryService,
   SigningCertNotConfiguredError,
   type PublicProposalDto,
-  type SignProposalResult,
 } from "@kessel/proposals";
+import { PaymentService } from "@kessel/payments";
 import { SignProposalDto } from "./dto/sign-proposal.dto";
 
 // Module PUBLIC token-gated (DELIV-01/02) — surface isolée du dashboard authentifié.
@@ -48,11 +48,24 @@ function clientIp(req: RequestWithIp): string | undefined {
   return req.ip ?? req.socket?.remoteAddress ?? undefined;
 }
 
+// Résultat de l'endpoint sign enrichi du statut acompte (PAY-01 orchestration layer).
+// FOUND-05 : la logique deposit vit ici (apps/api), jamais dans @kessel/proposals.
+export interface SignResponseDto {
+  signerName: string;
+  signedAt: string;
+  status: string;
+  alreadySigned: boolean;
+  depositPending?: true; // présent si Stripe a échoué (résilience T-3-resilience)
+}
+
 @Controller("api/public/proposals")
 @UseGuards(ThrottlerGuard)
 @Throttle({ default: { limit: 20, ttl: 60_000 } })
 export class PublicProposalsController {
-  constructor(@Inject(DeliveryService) private readonly delivery: DeliveryService) {}
+  constructor(
+    @Inject(DeliveryService) private readonly delivery: DeliveryService,
+    @Inject(PaymentService) private readonly payments: PaymentService,
+  ) {}
 
   // GET :token/pdf — PDF NON signé public (bouton "Télécharger le PDF", état signable). Résolu STRICT
   // par hash (DeliveryService.renderPdfByToken -> basePrisma.findUnique). null -> 404 (token bidon,
@@ -99,9 +112,10 @@ export class PublicProposalsController {
     @Param("token") token: string,
     @Body() dto: SignProposalDto,
     @Req() req: RequestWithIp,
-  ): Promise<SignProposalResult> {
+  ): Promise<SignResponseDto> {
+    let result;
     try {
-      return await this.delivery.signProposal(
+      result = await this.delivery.signProposal(
         token,
         { signerName: dto.signerName, signerEmail: dto.signerEmail },
         { ip: clientIp(req) },
@@ -113,6 +127,37 @@ export class PublicProposalsController {
       }
       throw err;
     }
+
+    // PAY-01 orchestration (FOUND-05) : deposit créé ICI dans la couche apps/api, JAMAIS dans
+    // @kessel/proposals. Appelé APRÈS que signProposal retourne (le $transaction a committé).
+    // Stripe hors $transaction — une erreur Stripe NE rollback PAS la signature (T-3-resilience).
+    // On crée l'acompte uniquement sur first-sign avec données de dépôt disponibles.
+    const response: SignResponseDto = {
+      signerName: result.signerName,
+      signedAt: result.signedAt,
+      status: result.status,
+      alreadySigned: result.alreadySigned,
+    };
+
+    if (
+      !result.alreadySigned &&
+      result.projectId &&
+      result.depositPercent != null &&
+      result.grandTotal &&
+      result.orgId
+    ) {
+      const deposit = await this.payments.createDeposit({
+        orgId: result.orgId,
+        projectId: result.projectId,
+        grandTotal: result.grandTotal,
+        depositPercent: result.depositPercent,
+      });
+      if ("depositPending" in deposit && deposit.depositPending) {
+        response.depositPending = true;
+      }
+    }
+
+    return response;
   }
 
   // GET :token — rendu lecture seule public (corps + devis + total). Enregistre OPENED au 1er

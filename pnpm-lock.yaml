@@ -114,6 +114,9 @@ importers:
       '@kessel/db':
         specifier: workspace:*
         version: link:../../packages/shared/db
+      '@kessel/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
       '@kessel/projects':
         specifier: workspace:*
         version: link:../../packages/projects

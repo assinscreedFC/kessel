@@ -21,6 +21,7 @@ export default defineConfig({
       "@kessel/auth": resolve(repoRoot, "packages/auth/src/index.ts"),
       "@kessel/db": resolve(repoRoot, "packages/shared/db/src/index.ts"),
       "@kessel/crm": resolve(repoRoot, "packages/crm/src/index.ts"),
+      "@kessel/payments": resolve(repoRoot, "packages/payments/src/index.ts"),
       "@kessel/proposals": resolve(repoRoot, "packages/proposals/src/index.ts"),
       "@kessel/projects": resolve(repoRoot, "packages/projects/src/index.ts"),
       "@kessel/ai": resolve(repoRoot, "packages/ai/src/index.ts"),

@@ -11,6 +11,7 @@
     "@kessel/auth": "workspace:*",
     "@kessel/crm": "workspace:*",
     "@kessel/db": "workspace:*",
+    "@kessel/payments": "workspace:*",
     "@kessel/projects": "workspace:*",
     "@kessel/proposals": "workspace:*",
     "@nestjs/common": "11.1.26",

@@ -16,6 +16,7 @@ import {
 } from "@kessel/proposals";
 import { AiProposalService, AnthropicProposalGenerator, PROPOSAL_GENERATOR } from "@kessel/ai";
 import { ProjectsService } from "@kessel/projects";
+import { PaymentService, stripeProvider } from "@kessel/payments";
 import { HealthController } from "./health/health.controller";
 import { ProjectsController } from "./projects/projects.controller";
 import { TasksController } from "./projects/tasks.controller";
@@ -79,6 +80,8 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     OutcomeService,
     AiProposalService,
     ProjectsService,
+    PaymentService,
+    stripeProvider,
     { provide: PROPOSAL_GENERATOR, useClass: AnthropicProposalGenerator },
   ],
 })
