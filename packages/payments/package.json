@@ -1,0 +1,14 @@
+{
+  "name": "@kessel/payments",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@nestjs/common": "11.1.26",
+    "@kessel/db": "workspace:*",
+    "decimal.js": "10.6.0",
+    "stripe": "22.2.1"
+  }
+}

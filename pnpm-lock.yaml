@@ -114,6 +114,9 @@ importers:
       '@kessel/db':
         specifier: workspace:*
         version: link:../../packages/shared/db
+      '@kessel/projects':
+        specifier: workspace:*
+        version: link:../../packages/projects
       '@kessel/proposals':
         specifier: workspace:*
         version: link:../../packages/proposals
@@ -226,6 +229,12 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.9
         version: 1.2.9(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@stripe/react-stripe-js':
+        specifier: ^6.6.0
+        version: 6.6.0(@stripe/stripe-js@9.8.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@stripe/stripe-js':
+        specifier: ^9.8.0
+        version: 9.8.0
       '@tanstack/react-query':
         specifier: 5.101.0
         version: 5.101.0(react@19.2.7)
@@ -321,6 +330,33 @@ importers:
       '@nestjs/common':
         specifier: 11.1.26
         version: 11.1.26(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.1)
+
+  packages/payments:
+    dependencies:
+      '@kessel/db':
+        specifier: workspace:*
+        version: link:../shared/db
+      '@nestjs/common':
+        specifier: 11.1.26
+        version: 11.1.26(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.1)
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
+      stripe:
+        specifier: 22.2.1
+        version: 22.2.1(@types/node@22.19.21)
+
+  packages/projects:
+    dependencies:
+      '@kessel/db':
+        specifier: workspace:*
+        version: link:../shared/db
+      '@nestjs/common':
+        specifier: 11.1.26
+        version: 11.1.26(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.1)
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
 
   packages/proposals:
     dependencies:
@@ -2894,6 +2930,17 @@ packages:
   '@streamparser/json@0.0.22':
     resolution: {integrity: sha512-b6gTSBjJ8G8SuO3Gbbj+zXbVx8NSs1EbpbMKpzGLWMdkR+98McH9bEjSz3+0mPJf68c5nxa3CrJHp5EQNXM6zQ==}
 
+  '@stripe/react-stripe-js@6.6.0':
+    resolution: {integrity: sha512-utODPiu2/JGjCnh5BX1M1F2uyjCwDKum4Bo8CeWdTCNOlzM0980YadzBMe7YoIwjfu3uadX4PMe3L2SderejqA==}
+    peerDependencies:
+      '@stripe/stripe-js': '>=9.5.0 <10.0.0'
+      react: '>=16.8.0 <20.0.0'
+      react-dom: '>=16.8.0 <20.0.0'
+
+  '@stripe/stripe-js@9.8.0':
+    resolution: {integrity: sha512-DHJpol/98VKyojNSYmpkB5vOMnlf87hPe0wPxyaYTNiTMk5QjKMXDfSZLwGctYIXAgAWDFeRABc8lFAj0BELyw==}
+    engines: {node: '>=12.16'}
+
   '@swc/core-darwin-arm64@1.13.5':
     resolution: {integrity: sha512-lKNv7SujeXvKn16gvQqUQI5DdyY8v7xcoO3k06/FJbHJS90zEwZdQiMNRiqpYw/orU543tPaWgz7cIYWhbopiQ==}
     engines: {node: '>=10'}
@@ -5292,6 +5339,10 @@ packages:
   long@5.3.2:
     resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
 
+  loose-envify@1.4.0:
+    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
+    hasBin: true
+
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
 
@@ -5742,6 +5793,9 @@ packages:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
 
+  prop-types@15.8.1:
+    resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
+
   proper-lockfile@4.1.2:
     resolution: {integrity: sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA==}
 
@@ -5867,6 +5921,9 @@ packages:
         optional: true
       typescript:
         optional: true
+
+  react-is@16.13.1:
+    resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
@@ -9499,6 +9556,15 @@ snapshots:
 
   '@streamparser/json@0.0.22': {}
 
+  '@stripe/react-stripe-js@6.6.0(@stripe/stripe-js@9.8.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      '@stripe/stripe-js': 9.8.0
+      prop-types: 15.8.1
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+
+  '@stripe/stripe-js@9.8.0': {}
+
   '@swc/core-darwin-arm64@1.13.5':
     optional: true
 
@@ -12075,6 +12141,10 @@ snapshots:
 
   long@5.3.2: {}
 
+  loose-envify@1.4.0:
+    dependencies:
+      js-tokens: 4.0.0
+
   loupe@3.2.1: {}
 
   lru-cache@10.4.3: {}
@@ -12634,6 +12704,12 @@ snapshots:
       kleur: 3.0.3
       sisteransi: 1.0.5
 
+  prop-types@15.8.1:
+    dependencies:
+      loose-envify: 1.4.0
+      object-assign: 4.1.1
+      react-is: 16.13.1
+
   proper-lockfile@4.1.2:
     dependencies:
       graceful-fs: 4.2.11
@@ -12823,6 +12899,8 @@ snapshots:
     optionalDependencies:
       react-dom: 19.2.7(react@19.2.7)
       typescript: 5.9.3
+
+  react-is@16.13.1: {}
 
   react-is@18.3.1: {}
 
