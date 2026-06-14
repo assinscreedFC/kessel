@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { PROJECT_STATUS_VALUES, type ProjectDto, type ProjectStatus, type TaskDto } from "@kessel/shared";
+import {
+  PROJECT_STATUS_VALUES,
+  type PaymentDto,
+  type ProjectDto,
+  type ProjectStatus,
+  type TaskDto,
+} from "@kessel/shared";
 
 // Modèle de l'entité Project côté web (couche `entities`).
 //
@@ -10,6 +16,7 @@ import { PROJECT_STATUS_VALUES, type ProjectDto, type ProjectStatus, type TaskDt
 
 export type Project = ProjectDto;
 export type Task = TaskDto;
+export type { PaymentDto };
 export { PROJECT_STATUS_VALUES, type ProjectStatus };
 
 // projectStatusFormSchema : miroir du contrat serveur UpdateProjectStatusInput.
