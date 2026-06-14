@@ -56,6 +56,7 @@ export interface SignResponseDto {
   status: string;
   alreadySigned: boolean;
   depositPending?: true; // présent si Stripe a échoué (résilience T-3-resilience)
+  paymentToken?: string; // token de paiement public (PAY-02) — absent si depositPending ou alreadySigned
 }
 
 @Controller("api/public/proposals")
@@ -154,6 +155,10 @@ export class PublicProposalsController {
       });
       if ("depositPending" in deposit && deposit.depositPending) {
         response.depositPending = true;
+      } else if ("paymentToken" in deposit) {
+        // PAY-02 : expose le token de paiement public pour la page Payment Element.
+        // Le token est généré une seule fois ici et n'est jamais loggé (T-3-card).
+        response.paymentToken = deposit.paymentToken;
       }
     }
 

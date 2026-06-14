@@ -29,6 +29,8 @@ import { OutcomesController } from "./proposals/outcomes.controller";
 import { TemplatesController } from "./proposals/templates.controller";
 import { PricingController } from "./pricing/pricing.controller";
 import { PublicProposalsController } from "./public/public-proposals.controller";
+import { StripeWebhookController } from "./webhooks/stripe.controller";
+import { PublicPaymentsController } from "./public/public-payments.controller";
 
 // App shell NestJS (FOUND-02/03). AuthModule.forRoot monte l'instance Better Auth (source
 // canonique org) + installe un AuthGuard GLOBAL : toutes les routes sont protégées par défaut.
@@ -65,6 +67,8 @@ import { PublicProposalsController } from "./public/public-proposals.controller"
     TemplatesController,
     PricingController,
     PublicProposalsController,
+    StripeWebhookController,
+    PublicPaymentsController,
     ProjectsController,
     TasksController,
   ],

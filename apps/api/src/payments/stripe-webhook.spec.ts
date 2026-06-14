@@ -147,7 +147,7 @@ describe("e2e POST /api/webhooks/stripe (PAY-03/04/05 / T-3-sig / T-3-replay / T
     const dealRes = await fetch(`${app.baseUrl}/api/deals`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ contactId: contact.id, title: "Deal webhook" }),
+      body: JSON.stringify({ contactId: contact.id, title: "Deal webhook", status: "LEAD" }),
     });
     dealId = ((await dealRes.json()) as { id: string }).id;
   });
@@ -167,7 +167,7 @@ describe("e2e POST /api/webhooks/stripe (PAY-03/04/05 / T-3-sig / T-3-replay / T
     await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: ck },
-      body: JSON.stringify({ description: "Dev", quantity: "5", unitPrice: "200.00", position: 1 }),
+      body: JSON.stringify({ description: "Dev", quantity: 5, unitPrice: 200.00, position: 1 }),
     });
     const sendRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/send`, {
       method: "POST",
@@ -177,7 +177,7 @@ describe("e2e POST /api/webhooks/stripe (PAY-03/04/05 / T-3-sig / T-3-replay / T
     await fetch(`${app.baseUrl}/api/public/proposals/${token}/sign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signerName: "Signer", signerEmail: "signer@test.com" }),
+      body: JSON.stringify({ signerName: "Signer", signerEmail: "signer@test.com", consent: true }),
     });
     const project = await app.basePrisma.project.findFirst({ where: { orgId: oId } });
     return { projectId: project!.id };

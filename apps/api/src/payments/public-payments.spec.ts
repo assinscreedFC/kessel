@@ -78,7 +78,7 @@ describe("e2e GET /api/public/payments/:token (PAY-02/05 / T-3-enum — RED Wave
     const dealRes = await fetch(`${app.baseUrl}/api/deals`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ contactId: contact.id, title: "Deal public paiement" }),
+      body: JSON.stringify({ contactId: contact.id, title: "Deal public paiement", status: "LEAD" }),
     });
     dealId = ((await dealRes.json()) as { id: string }).id;
   });
@@ -99,7 +99,7 @@ describe("e2e GET /api/public/payments/:token (PAY-02/05 / T-3-enum — RED Wave
     await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie },
-      body: JSON.stringify({ description: "Prestation", quantity: "2", unitPrice: "500.00", position: 1 }),
+      body: JSON.stringify({ description: "Prestation", quantity: 2, unitPrice: 500.00, position: 1 }),
     });
 
     const sendRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/send`, {
@@ -111,7 +111,7 @@ describe("e2e GET /api/public/payments/:token (PAY-02/05 / T-3-enum — RED Wave
     const signRes = await fetch(`${app.baseUrl}/api/public/proposals/${shareToken}/sign`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ signerName: "Client Sign", signerEmail: "sign@client.fr" }),
+      body: JSON.stringify({ signerName: "Client Sign", signerEmail: "sign@client.fr", consent: true }),
     });
     expect(signRes.status).toBe(200);
     const { paymentToken } = (await signRes.json()) as { paymentToken?: string };

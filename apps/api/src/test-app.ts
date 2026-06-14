@@ -96,6 +96,33 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
   const { StorageService } = await import("@kessel/proposals");
   const { STRIPE_CLIENT } = await import("@kessel/payments");
   const { Test } = await import("@nestjs/testing");
+  const { default: Stripe } = await import("stripe");
+
+  // Default e2e Stripe stub — couvre PAY-01/02/03/04/05 sans appel réseau réel.
+  //
+  // paymentIntents.create : retourne un PI fake (id + client_secret).
+  //   deposit-resilience.spec.ts utilise vi.spyOn pour remplacer create par test (stripeClient option).
+  //   PAY-05 : createBalance l'utilise après DEPOSIT PAID (webhook handler).
+  //
+  // paymentIntents.retrieve : retourne un client_secret fake déterministe (PAY-02 getPublicPaymentByToken).
+  //
+  // webhooks : instance réelle du SDK Stripe (AUCUN appel réseau — constructEvent est purement local :
+  //   HMAC-SHA256 sur le payload + tolérance timestamp 5 min). Cela permet aux specs webhook d'utiliser
+  //   generateTestHeaderString + constructEvent avec le même secret de test (WEBHOOK_SECRET).
+  const stripeForWebhooks = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod");
+  const defaultStripeStub = opts.stripeClient ?? {
+    paymentIntents: {
+      create: async (_params: unknown) => ({
+        id: `pi_test_stub_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        client_secret: `pi_test_stub_secret_${Date.now()}`,
+      }),
+      retrieve: async (id: string) => ({
+        id,
+        client_secret: `pi_retrieved_secret_${id}`,
+      }),
+    },
+    webhooks: stripeForWebhooks.webhooks,
+  };
 
   // Stub MinIO en mémoire (putSignedPdf capture les bytes ; getSignedPdf les restitue).
   // Identical au StorageStub de sign-proposal.spec.ts — seul MockIO est substituée, la crypto reste réelle.
@@ -126,17 +153,7 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
     // Défaut : stub no-op qui lève une erreur (sécurité — force les specs à fournir un stub explicite
     // si elles testent PAY-01, sinon createDeposit retourne depositPending:true sans ligne Payment).
     .overrideProvider(STRIPE_CLIENT)
-    .useValue(
-      opts.stripeClient ?? {
-        paymentIntents: {
-          create: async () => { throw new Error("STRIPE_CLIENT not configured in test — pass stripeClient option to bootTestApp"); },
-        },
-        webhooks: {
-          constructEvent: () => { throw new Error("STRIPE_CLIENT not configured in test"); },
-          generateTestHeaderString: () => "not-configured",
-        },
-      },
-    );
+    .useValue(defaultStripeStub);
 
   if (opts.disableThrottle) {
     const { ThrottlerGuard } = await import("@nestjs/throttler");
@@ -147,6 +164,24 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
   const app = moduleRef.createNestApplication({ bodyParser: false, logger: false });
   // Même ValidationPipe global qu'en prod (main.ts).
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+
+  // Même middleware raw-body que main.ts (Pattern 3 RESEARCH.md) : capture req.rawBody = Buffer
+  // pour stripe.webhooks.constructEvent dans StripeWebhookController.
+  const { default: bodyParser } = await import("body-parser");
+  const rawBodyBuffer = (
+    req: { headers: Record<string, string | string[] | undefined>; rawBody?: Buffer },
+    _res: unknown,
+    buffer: Buffer,
+  ) => {
+    if (req.headers["stripe-signature"]) {
+      req.rawBody = buffer;
+    }
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app.use(bodyParser.json({ verify: rawBodyBuffer as any }));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  app.use(bodyParser.urlencoded({ verify: rawBodyBuffer as any, extended: true }));
+
   await app.listen(0); // port éphémère
   const server = app.getHttpServer();
   const address = server.address();
