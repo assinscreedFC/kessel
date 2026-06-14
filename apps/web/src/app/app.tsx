@@ -10,6 +10,7 @@ import { DatasetPage } from "@/pages/dataset/ui/dataset-page";
 import { ProposalEditorPage } from "@/pages/proposal-editor/ui/proposal-editor-page";
 import { TemplateEditorPage } from "@/pages/proposal-editor/ui/template-editor-page";
 import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-page";
+import { PublicPaymentPage } from "@/pages/public-payment/ui/public-payment-page";
 import { ProjectsPage } from "@/pages/projects/ui/projects-page";
 import { ProjectDetailPage } from "@/pages/project-detail/ui/project-detail-page";
 import { Toaster } from "@/shared/ui/sonner";
@@ -51,6 +52,8 @@ export function App() {
               de tout layout AppShell/WideAppShell (aucune sidebar/chrome, aucune session). Le token
               dans l'URL est le secret d'accès ; le client public (publicApi) n'envoie jamais de cookie. */}
           <Route path="/p/:token" element={<PublicProposalPage />} />
+          {/* Page de paiement publique tokenisée (PAY-02) — hors AppShell, cookie-less, T-3-web-iso. */}
+          <Route path="/pay/:token" element={<PublicPaymentPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster />
