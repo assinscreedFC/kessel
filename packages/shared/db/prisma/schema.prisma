@@ -33,12 +33,13 @@ datasource db {
 // appartenant à Better Auth). En CI/runtime l'ordre est : Better Auth migrate D'ABORD (crée la table),
 // puis push Prisma métier (no-op sur organization, crée OrgNote + le FK). id == organization.id canonique.
 model Organization {
-  id        String    @id // == organization.id de Better Auth (id canonique)
-  name      String
-  slug      String    @unique // colonne canonique Better Auth (contrainte unique)
-  logo      String? // colonne canonique Better Auth (nullable)
-  metadata  String? // colonne canonique Better Auth (JSON sérialisé, nullable)
-  createdAt DateTime  @default(now())
+  id                   String    @id // == organization.id de Better Auth (id canonique)
+  name                 String
+  slug                 String    @unique // colonne canonique Better Auth (contrainte unique)
+  logo                 String? // colonne canonique Better Auth (nullable)
+  metadata             String? // colonne canonique Better Auth (JSON sérialisé, nullable)
+  createdAt            DateTime  @default(now())
+  defaultDepositPercent Int      @default(30) // % acompte par défaut org (PAY-01, Phase 3)
   notes     OrgNote[]
   contacts  Contact[]
   deals     Deal[]
@@ -155,6 +156,7 @@ model Proposal {
   // shareTokenHash : SHA-256 (hex) du share token public, JAMAIS le token brut (T-5-token). Nullable
   // jusqu'à l'envoi. @unique -> lookup public O(1) par hash (basePrisma.findUnique, pas forOrg).
   shareTokenHash String? @unique
+  depositPercent Int? // % acompte override par proposition (null = fallback org default, PAY-01, Phase 3)
   sentAt    DateTime? // horodatage de l'envoi (transition DRAFT -> SENT)
   signedAt  DateTime? // horodatage de la signature (transition SENT -> SIGNED)
   createdAt DateTime       @default(now())
@@ -347,6 +349,7 @@ model Payment {
   status                PaymentStatus @default(PENDING)
   amountCents           Int // centimes — decimal.js à l'I/O (NEVER Float)
   currency              String        @default("EUR")
+  paymentTokenHash      String?       @unique // SHA-256 (hex) du payment token public (PAY-02, Phase 3) — jamais le token brut
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
   org                   Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -355,6 +358,16 @@ model Payment {
   @@index([orgId])
   @@index([projectId])
   @@index([stripePaymentIntentId])
+}
+
+// ProcessedStripeEvent (Phase 3, PAY-03) : déduplication idempotence webhook.
+// eventId @unique = Stripe event.id (evt_...), globalement unique côté Stripe → pas de orgId
+// (HORS SCOPED_MODELS, justifié : pas de donnée tenant, lookup org se fait via Payment AVANT insert).
+model ProcessedStripeEvent {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  type      String
+  createdAt DateTime @default(now())
 }
 
 // === API Keys (Phase 5, API-01) ===

@@ -34,6 +34,32 @@ export const ProjectStatus = {
     CANCELLED: "CANCELLED"
 } as const;
 export type ProjectStatus = (typeof ProjectStatus)[keyof typeof ProjectStatus];
+export const PaymentKind = {
+    DEPOSIT: "DEPOSIT",
+    BALANCE: "BALANCE"
+} as const;
+export type PaymentKind = (typeof PaymentKind)[keyof typeof PaymentKind];
+export const PaymentStatus = {
+    PENDING: "PENDING",
+    PAID: "PAID",
+    FAILED: "FAILED"
+} as const;
+export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
+export const DeliveryStatus = {
+    PENDING: "PENDING",
+    DELIVERED: "DELIVERED",
+    FAILED: "FAILED"
+} as const;
+export type DeliveryStatus = (typeof DeliveryStatus)[keyof typeof DeliveryStatus];
+export type ApiKey = {
+    id: string;
+    orgId: string;
+    name: string;
+    keyHash: string;
+    prefix: string;
+    revokedAt: Timestamp | null;
+    createdAt: Generated<Timestamp>;
+};
 export type Contact = {
     id: string;
     orgId: string;
@@ -60,12 +86,34 @@ export type Organization = {
     logo: string | null;
     metadata: string | null;
     createdAt: Generated<Timestamp>;
+    defaultDepositPercent: Generated<number>;
 };
 export type OrgNote = {
     id: string;
     orgId: string;
     body: string;
     meta: unknown | null;
+    createdAt: Generated<Timestamp>;
+};
+export type Payment = {
+    id: string;
+    orgId: string;
+    projectId: string;
+    stripePaymentIntentId: string;
+    kind: Generated<PaymentKind>;
+    status: Generated<PaymentStatus>;
+    amountCents: number;
+    currency: Generated<string>;
+    paymentTokenHash: string | null;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
+export type PortalSession = {
+    id: string;
+    contactId: string;
+    tokenHash: string;
+    expiresAt: Timestamp;
+    usedAt: Timestamp | null;
     createdAt: Generated<Timestamp>;
 };
 export type PricingItem = {
@@ -77,6 +125,23 @@ export type PricingItem = {
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
 };
+export type ProcessedStripeEvent = {
+    id: string;
+    eventId: string;
+    type: string;
+    createdAt: Generated<Timestamp>;
+};
+export type Project = {
+    id: string;
+    orgId: string;
+    dealId: string;
+    proposalId: string;
+    title: string;
+    status: Generated<ProjectStatus>;
+    budgetSnapshot: unknown;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
 export type Proposal = {
     id: string;
     orgId: string;
@@ -85,6 +150,7 @@ export type Proposal = {
     bodyJson: unknown;
     status: Generated<ProposalStatus>;
     shareTokenHash: string | null;
+    depositPercent: number | null;
     sentAt: Timestamp | null;
     signedAt: Timestamp | null;
     createdAt: Generated<Timestamp>;
@@ -131,17 +197,6 @@ export type Signature = {
     signedPdfKey: string;
     auditTrail: unknown | null;
 };
-export type Project = {
-    id: string;
-    orgId: string;
-    dealId: string;
-    proposalId: string;
-    title: string;
-    status: Generated<ProjectStatus>;
-    budgetSnapshot: unknown;
-    createdAt: Generated<Timestamp>;
-    updatedAt: Timestamp;
-};
 export type Task = {
     id: string;
     projectId: string;
@@ -151,12 +206,37 @@ export type Task = {
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
 };
+export type WebhookDelivery = {
+    id: string;
+    webhookEndpointId: string;
+    event: string;
+    payload: unknown;
+    status: Generated<DeliveryStatus>;
+    responseCode: number | null;
+    attemptCount: Generated<number>;
+    deliveredAt: Timestamp | null;
+    createdAt: Generated<Timestamp>;
+};
+export type WebhookEndpoint = {
+    id: string;
+    orgId: string;
+    url: string;
+    secret: string;
+    events: string[];
+    active: Generated<boolean>;
+    createdAt: Generated<Timestamp>;
+    updatedAt: Timestamp;
+};
 export type DB = {
+    ApiKey: ApiKey;
     Contact: Contact;
     Deal: Deal;
     organization: Organization;
     OrgNote: OrgNote;
+    Payment: Payment;
+    PortalSession: PortalSession;
     PricingItem: PricingItem;
+    ProcessedStripeEvent: ProcessedStripeEvent;
     Project: Project;
     Proposal: Proposal;
     ProposalEvent: ProposalEvent;
@@ -165,4 +245,6 @@ export type DB = {
     QuoteLine: QuoteLine;
     Signature: Signature;
     Task: Task;
+    WebhookDelivery: WebhookDelivery;
+    WebhookEndpoint: WebhookEndpoint;
 };
