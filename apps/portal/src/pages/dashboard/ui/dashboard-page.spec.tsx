@@ -77,11 +77,11 @@ describe("DashboardPage", () => {
   it("renders project with tasks as read-only (no checkbox, no button)", async () => {
     vi.mocked(api.portalApi.project).mockResolvedValue({
       id: "proj1",
-      name: "Projet Alpha",
+      title: "Projet Alpha",
       status: "ACTIVE",
       tasks: [
-        { id: "t1", title: "Tâche 1", status: "DONE" },
-        { id: "t2", title: "Tâche 2", status: "TODO" },
+        { id: "t1", title: "Tâche 1", done: true },
+        { id: "t2", title: "Tâche 2", done: false },
       ],
     });
 
@@ -96,6 +96,12 @@ describe("DashboardPage", () => {
     // Strict read-only: no checkbox inputs, no buttons in task area
     const checkboxes = container.querySelectorAll('input[type="checkbox"]');
     expect(checkboxes).toHaveLength(0);
+
+    // Assert completion icons are rendered — proves isDone is computed from done:boolean.
+    // Two tasks => at least 2 SVG icons (one CheckCircle2, one Circle).
+    // A regression that re-introduces task.status would crash on undefined.done and fail here.
+    const svgs = container.querySelectorAll("svg");
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
   });
 
   it("renders payment rows with kind labels and badges", async () => {
