@@ -1,0 +1,9 @@
+import { type ProjectStatus } from "@kessel/shared";
+
+// PROJECT_STATUS_META — SOURCE UNIQUE du mapping statut -> (label FR + classes badge), 04-UI-SPEC
+// §Color. Copié verbatim depuis apps/web/src/entities/project/status.ts.
+export const PROJECT_STATUS_META: Record<ProjectStatus, { label: string; badge: string }> = {
+  ACTIVE: { label: "Actif", badge: "bg-blue-100 text-blue-700" },
+  COMPLETED: { label: "Terminé", badge: "bg-green-100 text-green-700" },
+  CANCELLED: { label: "Annulé", badge: "bg-red-100 text-red-700" },
+};
