@@ -110,7 +110,7 @@ export function DashboardPage() {
             <div className="mt-2 rounded-lg border border-slate-200 bg-white p-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-semibold text-slate-900">
-                  {projectQuery.data.name}
+                  {projectQuery.data.title}
                 </span>
                 {(() => {
                   const meta = PROJECT_STATUS_META[projectQuery.data!.status];
@@ -132,8 +132,7 @@ export function DashboardPage() {
               ) : (
                 <ul>
                   {projectQuery.data.tasks.map((task) => {
-                    const isDone =
-                      task.status === "DONE" || task.status === "COMPLETED";
+                    const isDone = task.done === true;
                     return (
                       <li
                         key={task.id}
