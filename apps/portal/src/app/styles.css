@@ -1,0 +1,12 @@
+/* Tailwind v4 — un seul import suffit (pas de @tailwind base/components/utilities).
+   Le plugin @tailwindcss/vite scanne le source et génère l'utilitaire. */
+@import "tailwindcss";
+
+/* Base body 14px (B2B dense — Linear/Notion, 02-UI-SPEC) au lieu du 16px par défaut.
+   On baisse la taille de POLICE de body uniquement (pas la racine rem, sinon l'échelle de
+   spacing 8pt serait rescalée). Les utilitaires Tailwind (`text-sm`...) restent intacts. */
+body {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.5;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

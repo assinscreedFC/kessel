@@ -1,0 +1,17 @@
+{
+  "name": "portal",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/portal/src",
+  "projectType": "application",
+  "tags": ["type:app", "scope:portal"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vite build", "cwd": "apps/portal" }
+    },
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vite", "cwd": "apps/portal" }
+    }
+  }
+}
