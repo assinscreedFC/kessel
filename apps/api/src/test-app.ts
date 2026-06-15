@@ -64,6 +64,10 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
   // STRIPE_SECRET_KEY requis au boot par ConfigModule (env.validation, SC4). Clé factice de test
   // (jamais un vrai secret) pour que l'AppModule s'instancie en e2e — la prod l'exige toujours.
   process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY ?? "sk_test_not_for_prod";
+  // PORTAL_JWT_SECRET requis au boot par env.validation (Joi min 32 required). Secret de test
+  // déterministe (jamais un vrai secret ; CLAUDE.md security) — distinct de BETTER_AUTH_SECRET.
+  process.env.PORTAL_JWT_SECRET = process.env.PORTAL_JWT_SECRET ?? "test-portal-secret-32chars-minimum-ok";
+  process.env.PORTAL_APP_URL = process.env.PORTAL_APP_URL ?? "http://localhost:5174";
   // baseURL trusted par Better Auth pour les cookies/CSRF en test.
   process.env.BETTER_AUTH_URL = "http://localhost";
   // Cert de signature PAdES (DELIV-03) : généré une fois en tmpdir, réutilisé (idempotent).

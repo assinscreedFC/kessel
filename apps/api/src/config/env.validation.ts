@@ -11,4 +11,9 @@ export const envValidationSchema = Joi.object({
     "string.empty": "STRIPE_SECRET_KEY cannot be empty",
   }),
   STRIPE_WEBHOOK_SECRET: Joi.string().optional(),
+  PORTAL_JWT_SECRET: Joi.string().min(32).required().messages({
+    "any.required": "PORTAL_JWT_SECRET is required — set it in your .env (>= 32 chars)",
+    "string.min": "PORTAL_JWT_SECRET must be at least 32 characters",
+  }),
+  PORTAL_APP_URL: Joi.string().uri().default("http://localhost:5174"),
 }).unknown(true);
