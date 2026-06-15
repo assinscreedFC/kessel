@@ -171,7 +171,7 @@ describe("e2e /portal/proposals|project|payments (PORT-02/03/04 + isolation cros
         orgId: orgAId,
         dealId: dealXId,
         proposalId: proposalXId,
-        name: "Projet X",
+        title: "Projet X",
         status: "ACTIVE",
         budgetSnapshot: "1000.00",
       },
