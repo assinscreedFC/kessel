@@ -52,9 +52,10 @@ export class PortalAuthController {
 }
 
 // GET /portal/me — retourne {contactId, orgId} du JWT portail.
-// @UseGuards(ClientPortalGuard) : vérifie le cookie portal_session + injecte portalContact.
-// Séparé de PortalAuthController pour ne pas hériter de @AllowAnonymous (ce endpoint est GARDÉ).
+// @AllowAnonymous : contourne l'AuthGuard global Better Auth (portal JWT ≠ Better Auth session).
+// @UseGuards(ClientPortalGuard) : assure la vérification du JWT portail httpOnly (T-4-iso).
 @Controller("portal")
+@AllowAnonymous()
 @UseGuards(ClientPortalGuard)
 export class PortalMeController {
   @Get("me")

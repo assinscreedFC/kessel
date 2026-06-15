@@ -16,7 +16,7 @@ export type PortalContact = {
 
 // Extension du type Request pour inclure portalContact (typé, pas any).
 interface RequestWithPortalContact {
-  headers: { cookie?: string };
+  headers: { cookie?: string; authorization?: string };
   portalContact?: PortalContact;
 }
 
@@ -25,8 +25,13 @@ export class ClientPortalGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithPortalContact>();
 
-    // Cookie absent => 401 uniforme (T-4-enum).
-    const token = extractPortalCookie(request);
+    // Extraire le token : cookie portal_session EN PRIORITÉ, sinon Authorization: Bearer (tests e2e).
+    // T-4-enum : 401 uniforme si aucun token présent.
+    const cookieToken = extractPortalCookie(request);
+    const bearerToken = request.headers.authorization?.startsWith("Bearer ")
+      ? request.headers.authorization.slice(7)
+      : undefined;
+    const token = cookieToken ?? bearerToken;
     if (!token) {
       throw new UnauthorizedException();
     }
