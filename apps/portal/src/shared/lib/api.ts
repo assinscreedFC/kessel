@@ -14,12 +14,12 @@ export type PortalProposalDto = {
 export type PortalTaskDto = {
   id: string;
   title: string;
-  status: string; // DONE/COMPLETED triggers CheckCircle2
+  done: boolean;
 };
 
 export type PortalProjectDto = {
   id: string;
-  name: string;
+  title: string;
   status: "ACTIVE" | "COMPLETED" | "CANCELLED";
   tasks: PortalTaskDto[];
 };
