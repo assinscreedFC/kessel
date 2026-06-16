@@ -12,6 +12,7 @@ import {
   StreamableFile,
   UseGuards,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@kessel/proposals";
 import { PaymentService } from "@kessel/payments";
 import { SignProposalDto } from "./dto/sign-proposal.dto";
+import type { ProposalSignedEvent, ProjectCreatedEvent } from "../webhooks/webhook-events";
 
 // Module PUBLIC token-gated (DELIV-01/02) — surface isolée du dashboard authentifié.
 //
@@ -66,6 +68,7 @@ export class PublicProposalsController {
   constructor(
     @Inject(DeliveryService) private readonly delivery: DeliveryService,
     @Inject(PaymentService) private readonly payments: PaymentService,
+    @Inject(EventEmitter2) private readonly events: EventEmitter2,
   ) {}
 
   // GET :token/pdf — PDF NON signé public (bouton "Télécharger le PDF", état signable). Résolu STRICT
@@ -159,6 +162,33 @@ export class PublicProposalsController {
         // PAY-02 : expose le token de paiement public pour la page Payment Element.
         // Le token est généré une seule fois ici et n'est jamais loggé (T-3-card).
         response.paymentToken = deposit.paymentToken;
+      }
+    }
+
+    // WEBHOOKS (API-04, FOUND-05) : émission depuis la couche orchestration apps/api.
+    // @kessel/proposals ne connaît pas EventEmitter2 (domain->infrastructure interdit).
+    // On émet uniquement sur first-sign (alreadySigned = false).
+    if (!result.alreadySigned && result.orgId) {
+      // proposalId : result expose proposalId via la shape SignProposalResult (DELIV-03).
+      // Si absent du résultat (champ optionnel), on ne peut pas émettre — guard défensif.
+      const proposalId = (result as { proposalId?: string }).proposalId;
+
+      if (proposalId) {
+        this.events.emit("proposal.signed", {
+          proposalId,
+          orgId: result.orgId,
+          signedAt: result.signedAt,
+        } satisfies ProposalSignedEvent);
+      }
+
+      // project.created est émis si le projet a été créé lors de la signature (PROJ-01).
+      if (result.projectId) {
+        this.events.emit("project.created", {
+          projectId: result.projectId,
+          orgId: result.orgId,
+          proposalId: proposalId ?? token, // fallback : token identifie la proposition
+          createdAt: new Date().toISOString(),
+        } satisfies ProjectCreatedEvent);
       }
     }
 

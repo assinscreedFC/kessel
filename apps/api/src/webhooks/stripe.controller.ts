@@ -6,6 +6,7 @@ import {
   Post,
   Req,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AllowAnonymous } from "@thallesp/nestjs-better-auth";
 import { PaymentService, STRIPE_CLIENT, type StripeLike } from "@kessel/payments";
 
@@ -36,6 +37,7 @@ export class StripeWebhookController {
   constructor(
     @Inject(STRIPE_CLIENT) private readonly stripe: StripeLike,
     @Inject(PaymentService) private readonly payments: PaymentService,
+    @Inject(EventEmitter2) private readonly events: EventEmitter2,
   ) {}
 
   @Post()
@@ -72,6 +74,11 @@ export class StripeWebhookController {
     }
 
     // Délègue le traitement idempotent à PaymentService (T-3-replay, T-3-iso).
-    await this.payments.handleWebhookEvent(event);
+    // WEBHOOKS (API-04, FOUND-05) : si PAID, PaymentService retourne le payload à émettre.
+    // L'émission EventEmitter2 reste dans la couche apps/api — jamais dans @kessel/payments.
+    const result = await this.payments.handleWebhookEvent(event);
+    if (result) {
+      this.events.emit(result.event, result.payload);
+    }
   }
 }

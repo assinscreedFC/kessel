@@ -66,6 +66,23 @@ export interface PublicPaymentView {
   orgName: string;
 }
 
+// PaymentReceivedPayload — exported so apps/api StripeWebhookController can type the result.
+// FOUND-05 : ce type est défini ICI (@kessel/payments) — jamais de @nestjs/event-emitter import.
+// apps/api/webhook-events.ts#PaymentReceivedEvent mirrors this shape.
+export interface PaymentReceivedPayload {
+  paymentId: string;
+  orgId: string;
+  kind: string;
+  amountCents: number;
+  currency: string;
+  projectId?: string;
+}
+
+export interface PaymentWebhookResult {
+  event: "payment.received";
+  payload: PaymentReceivedPayload;
+}
+
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -225,7 +242,7 @@ export class PaymentService {
    * Événements traités : payment_intent.succeeded → PAID ; payment_intent.payment_failed → FAILED.
    * PAY-05 : si DEPOSIT → PAID, crée le BALANCE PaymentIntent APRÈS le commit de la $transaction.
    */
-  async handleWebhookEvent(event: unknown): Promise<void> {
+  async handleWebhookEvent(event: unknown): Promise<PaymentWebhookResult | void> {
     const ev = event as { id: string; type: string; data: { object: unknown } };
 
     // Idempotence : si cet eventId a déjà été traité → no-op (T-3-replay).
@@ -300,6 +317,22 @@ export class PaymentService {
         const message = err instanceof Error ? err.message : String(err);
         this.logger.error(`handleWebhookEvent: createBalance failed for project ${payment.projectId} — ${message}`);
       }
+    }
+
+    // API-04 (FOUND-05) : retourner le payload payment.received quand newStatus === PAID.
+    // Le controller (StripeWebhookController dans apps/api) émet l'event — JAMAIS depuis ce service.
+    if (newStatus === "PAID") {
+      return {
+        event: "payment.received",
+        payload: {
+          paymentId: payment.id,
+          orgId: payment.orgId,
+          kind: payment.kind,
+          amountCents: payment.amountCents,
+          currency: payment.currency,
+          projectId: payment.projectId ?? undefined,
+        },
+      };
     }
   }
 }

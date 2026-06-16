@@ -10,6 +10,8 @@ export type {
   CreateBalanceArgs,
   CreateBalanceResult,
   PublicPaymentView,
+  PaymentReceivedPayload,
+  PaymentWebhookResult,
 } from "./payment.service";
 
 export {
