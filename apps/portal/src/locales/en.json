@@ -16,6 +16,11 @@
       "title": "Payments",
       "empty": "No payments recorded."
     },
+    "files": {
+      "title": "Shared Files",
+      "empty": "No files shared yet.",
+      "download": "Download"
+    },
     "footer": "Powered by Kessel",
     "magic_link": {
       "loading_label": "Verifying…"

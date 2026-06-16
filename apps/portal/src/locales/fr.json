@@ -16,6 +16,11 @@
       "title": "Paiements",
       "empty": "Aucun paiement enregistré."
     },
+    "files": {
+      "title": "Fichiers partagés",
+      "empty": "Aucun fichier partagé.",
+      "download": "Télécharger"
+    },
     "footer": "Propulsé par Kessel",
     "magic_link": {
       "loading_label": "Vérification en cours…"

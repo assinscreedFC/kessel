@@ -32,6 +32,18 @@ export type PortalPaymentDto = {
   currency: string;
 };
 
+// PORT-05 : fichiers partagés par l'agence (TTL 5 min — URL présignée MinIO).
+export type PortalFileDto = {
+  id: string;
+  contactId: string;
+  orgId: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  presignedUrl: string;
+};
+
 export type PortalMeDto = {
   contactId: string;
   orgId: string;
@@ -62,6 +74,8 @@ export const portalApi = {
   proposals: () => portalFetch<PortalProposalDto[]>("/portal/proposals"),
   project: () => portalFetch<PortalProjectDto | null>("/portal/project"),
   payments: () => portalFetch<PortalPaymentDto[]>("/portal/payments"),
+  // PORT-05 : liste fichiers partagés avec URL présignée TTL 5 min (jamais en cache côté client).
+  files: () => portalFetch<PortalFileDto[]>("/portal/files"),
   exchange: (token: string) =>
     fetch("/portal/auth/exchange", {
       method: "POST",

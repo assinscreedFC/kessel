@@ -2,11 +2,12 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle, FileText, Image, Archive, File } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
+import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Separator } from "@/shared/ui/separator";
-import { portalApi, PortalUnauthorizedError } from "@/shared/lib/api";
+import { portalApi, PortalUnauthorizedError, type PortalFileDto } from "@/shared/lib/api";
 import { usePortalLang } from "@/shared/lib/use-portal-lang";
 import { PROPOSAL_STATUS_META } from "@/entities/proposal/status";
 import { PROJECT_STATUS_META } from "@/entities/project/status";
@@ -16,6 +17,27 @@ import { PAYMENT_STATUS_META } from "@/entities/payment/model";
 // 3 sections : Mes propositions (PORT-02), Mon projet (PORT-03), Paiements (PORT-04).
 // Toute réponse 401 redirige vers / (JWT expiré — UI-SPEC States & Transitions).
 // Aucun contrôle d'écriture : pas de checkbox, pas de bouton d'action (T-4-ui-write).
+
+// Formate une taille en octets en chaîne lisible (Ko / Mo).
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+// Icône lucide selon le contentType du fichier (UI-SPEC Surface 2 file icon pattern).
+function FileIcon({ contentType }: { contentType: string }) {
+  if (contentType.startsWith("image/")) {
+    return <Image className="h-4 w-4 text-slate-400" aria-hidden="true" />;
+  }
+  if (contentType === "application/zip" || contentType === "application/x-zip-compressed") {
+    return <Archive className="h-4 w-4 text-slate-400" aria-hidden="true" />;
+  }
+  if (contentType === "application/pdf" || contentType.includes("document") || contentType.includes("text")) {
+    return <FileText className="h-4 w-4 text-slate-400" aria-hidden="true" />;
+  }
+  return <File className="h-4 w-4 text-slate-400" aria-hidden="true" />;
+}
 
 function usePortalQuery<T>(key: string, fn: () => Promise<T>) {
   const navigate = useNavigate();
@@ -37,6 +59,8 @@ export function DashboardPage() {
   const proposalsQuery = usePortalQuery("proposals", portalApi.proposals);
   const projectQuery = usePortalQuery("project", portalApi.project);
   const paymentsQuery = usePortalQuery("payments", portalApi.payments);
+  // PORT-05 : fichiers portail — staleTime 0 (TTL présignée 5 min, pas de cache côté client).
+  const filesQuery = usePortalQuery("files", portalApi.files);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -212,6 +236,54 @@ export function DashboardPage() {
                   </li>
                 );
               })}
+            </ul>
+          )}
+        </section>
+
+        <Separator className="my-6 bg-slate-200" />
+
+        {/* Section D — Fichiers partagés (PORT-05) */}
+        <section aria-labelledby="section-files">
+          <h2
+            id="section-files"
+            className="text-base font-semibold text-slate-900"
+          >
+            {t("portal.files.title")}
+          </h2>
+
+          {filesQuery.isLoading ? (
+            <div className="mt-2 space-y-2">
+              <Skeleton className="h-10 w-full" aria-hidden="true" />
+              <Skeleton className="h-10 w-full" aria-hidden="true" />
+            </div>
+          ) : !filesQuery.data || filesQuery.data.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-sm text-slate-500">{t("portal.files.empty")}</p>
+            </div>
+          ) : (
+            <ul className="mt-2" aria-label={t("portal.files.title")}>
+              {filesQuery.data.map((file) => (
+                <li
+                  key={file.id}
+                  className="flex justify-between items-center py-3 border-b border-slate-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <FileIcon contentType={file.contentType} />
+                    <span className="text-sm text-slate-900">{file.filename}</span>
+                    <span className="text-xs text-slate-400">{formatFileSize(file.sizeBytes)}</span>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <a
+                      href={file.presignedUrl}
+                      download
+                      rel="noopener noreferrer"
+                      aria-label={`${t("portal.files.download")} ${file.filename}`}
+                    >
+                      {t("portal.files.download")}
+                    </a>
+                  </Button>
+                </li>
+              ))}
             </ul>
           )}
         </section>
