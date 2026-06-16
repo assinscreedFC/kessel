@@ -7,6 +7,17 @@
 // bodyJson = document ProseMirror/Tiptap : typé `unknown` (forme contrôlée par le schéma de l'éditeur,
 // validé/borné côté serveur ; jamais exécuté).
 
+// === Totaux TVA (TVA-02/03/04) — calculés serveur, jamais stockés ===
+// Forme miroir de VatTotals (vat.ts) pour le boundary DTO. Calculé via computeVatTotals dans les
+// services (toProposalDto, getByToken, renderPdf) — jamais confiance au payload front.
+export interface VatTotalsDto {
+  ht: string;                              // "99.99"
+  tva: { rate: number; amount: string }[]; // [{ rate: 20, amount: "20.00" }] — taux en %
+  ttc: string;                             // "119.99"
+  regime: "FRANCHISE" | "NORMAL" | "INTRACOM";
+  legalMention: string | null;
+}
+
 // Statut de la proposition (miroir du schéma Prisma, Plan 05-01). Étendu en Phase 5 avec
 // SENT (lien public généré, token hashé) et SIGNED (PAdES signé, deal WON). Enum stable à ces
 // 3 valeurs (AI-01 Phase 6 lit ces statuts ; ordre fixe DRAFT -> SENT -> SIGNED).
@@ -51,6 +62,7 @@ export interface QuoteLineInput {
   quantity: number;
   unitPrice: number;
   position: number;
+  vatRate?: number; // ex. 0.20 pour 20% — optionnel, défaut 0.20 côté serveur
 }
 export interface QuoteLineDto {
   id: string;
@@ -59,6 +71,7 @@ export interface QuoteLineDto {
   unitPrice: string;
   lineTotal: string; // calculé serveur (decimal.js), non stocké
   position: number;
+  vatRate: string;   // ex. "0.2000" — Decimal->string au boundary
 }
 
 // === Templates de proposition ===
@@ -101,7 +114,8 @@ export interface ProposalDto {
   bodyJson: unknown;
   status: ProposalStatus;
   lines: QuoteLineDto[];
-  grandTotal: string; // calculé serveur (decimal.js), non stocké
+  grandTotal: string;      // calculé serveur (decimal.js), non stocké — gardé pour compat
+  vatTotals: VatTotalsDto; // TVA calculée serveur (TVA-02/03/04), jamais depuis le front
   createdAt: string;
   updatedAt: string;
 }
