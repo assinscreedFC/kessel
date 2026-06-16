@@ -83,6 +83,15 @@ export interface PaymentWebhookResult {
   payload: PaymentReceivedPayload;
 }
 
+export interface CreateSepaSetupArgs {
+  paymentId: string;
+  orgId: string;
+}
+
+export interface CreateSepaSetupResult {
+  setupClientSecret: string;
+}
+
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -231,6 +240,31 @@ export class PaymentService {
       currency: payment.currency,
       orgName,
     };
+  }
+
+  /**
+   * Crée un SetupIntent Stripe pour le prélèvement SEPA et retourne le setupClientSecret.
+   *
+   * PAY-06 / T-8-sepa :
+   *   - payment_method_types: ['sepa_debit'] + usage: 'off_session' (débit ultérieur off-session)
+   *   - metadata.paymentId + metadata.orgId pour cross-check (JAMAIS autorité — T-3-iso)
+   *   - setupClientSecret JAMAIS loggé (T-3-card)
+   */
+  async createSepaSetup(args: CreateSepaSetupArgs): Promise<CreateSepaSetupResult> {
+    const { paymentId, orgId } = args;
+
+    const si = await this.stripe.setupIntents.create({
+      payment_method_types: ["sepa_debit"],
+      usage: "off_session",
+      metadata: { paymentId, orgId },
+    });
+
+    if (!si.client_secret) {
+      throw new Error("Stripe SetupIntent client_secret is null");
+    }
+
+    // T-3-card : setupClientSecret JAMAIS loggé.
+    return { setupClientSecret: si.client_secret };
   }
 
   /**

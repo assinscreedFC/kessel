@@ -28,6 +28,13 @@ export interface StripeLike {
     }): Promise<{ id: string; client_secret: string | null }>;
     retrieve(id: string): Promise<{ id: string; client_secret: string | null }>;
   };
+  setupIntents: {
+    create(params: {
+      payment_method_types: string[];
+      usage?: "off_session" | "on_session";
+      metadata?: Record<string, string>;
+    }): Promise<{ id: string; client_secret: string | null }>;
+  };
   webhooks: {
     constructEvent(
       payload: string | Buffer,
