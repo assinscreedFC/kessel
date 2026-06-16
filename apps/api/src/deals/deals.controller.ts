@@ -4,10 +4,12 @@ import { Session, type UserSession } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { CrmService } from "@kessel/crm";
 import { OutcomeService } from "@kessel/proposals";
-import type { DealDto } from "@kessel/shared";
+import type { DealActivityDto, DealDto } from "@kessel/shared";
 import { requireOrg } from "../shared/require-org";
+import { CreateActivityDto } from "./dto/create-activity.dto";
 import { CreateDealDto } from "./dto/create-deal.dto";
 import { GetDealsQueryDto } from "./dto/get-deals-query.dto";
+import { MoveDealDto } from "./dto/move-deal.dto";
 import { UpdateDealDto } from "./dto/update-deal.dto";
 import type { DealCreatedEvent } from "../webhooks/webhook-events";
 
@@ -87,5 +89,39 @@ export class DealsController {
       await this.outcome.recordLostForDeal(orgId, id, dto.reason);
     }
     return deal;
+  }
+
+  // CRM-04 : déplace un deal dans le kanban (changement de colonne + position).
+  // La colonne cible est réindexée 0..n en transaction (T-6-10 — pas de collision).
+  // IDOR : assertDealInOrg avant toute écriture (T-6-08).
+  // Chemin ":id/move" distinct de ":id" — aucun conflit avec @Patch(":id") update.
+  @Patch(":id/move")
+  async move(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+    @Body() dto: MoveDealDto,
+  ): Promise<DealDto> {
+    return this.crm.moveDeal(requireOrg(session), id, dto);
+  }
+
+  // CRM-08 : ajoute une activité/note sur un deal (POST 201).
+  // IDOR : assertDealInOrg avant tout accès DealActivity (T-6-07 — DealActivity hors SCOPED_MODELS).
+  @Post(":id/activities")
+  async addActivity(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+    @Body() dto: CreateActivityDto,
+  ): Promise<DealActivityDto> {
+    return this.crm.addActivity(requireOrg(session), id, dto);
+  }
+
+  // CRM-08 : retourne la timeline d'activités d'un deal (GET 200, triée desc).
+  // IDOR : même guard que addActivity.
+  @Get(":id/activities")
+  async listActivities(
+    @Session() session: UserSession<typeof auth>,
+    @Param("id") id: string,
+  ): Promise<DealActivityDto[]> {
+    return this.crm.listActivities(requireOrg(session), id);
   }
 }
