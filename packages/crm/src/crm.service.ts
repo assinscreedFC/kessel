@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { forOrg } from "@kessel/db";
 import type {
+  ClientOrgDto,
+  ClientOrgInput,
   ContactDto,
   ContactInput,
   DealDto,
@@ -23,8 +25,16 @@ type ContactRow = {
   name: string;
   email: string;
   organizationName: string | null;
+  clientOrgId: string | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+// Forme brute d'une ligne ClientOrg telle que renvoyée par forOrg(orgId).clientOrg.* .
+type ClientOrgRow = {
+  id: string;
+  name: string;
+  createdAt: Date;
 };
 
 // amount est un Prisma Decimal (objet .toString()) — typé large pour rester indépendant du runtime Decimal.
@@ -34,6 +44,8 @@ type DealRow = {
   contactId: string;
   status: DealStatus;
   amount: { toString(): string } | null;
+  position: number;
+  clientOrgId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -44,8 +56,17 @@ function toContactDto(row: ContactRow): ContactDto {
     name: row.name,
     email: row.email,
     organizationName: row.organizationName,
+    clientOrgId: row.clientOrgId ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toClientOrgDto(row: ClientOrgRow): ClientOrgDto {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -57,6 +78,8 @@ function toDealDto(row: DealRow): DealDto {
     status: row.status,
     // Pitfall 2 : Decimal -> string au boundary (précision monétaire) ; JAMAIS l'objet Decimal brut.
     amount: row.amount != null ? row.amount.toString() : null,
+    position: row.position,
+    clientOrgId: row.clientOrgId ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -97,11 +120,61 @@ export class CrmService {
     if (input.email !== undefined) data.email = input.email;
     if (input.organizationName !== undefined) data.organizationName = input.organizationName ?? null;
 
+    // CRM-06 : rattachement à une ClientOrg avec IDOR guard (T-6-05).
+    // Si clientOrgId est fourni (non undefined) et non null, vérifier qu'elle appartient à l'org.
+    // null = détacher le contact de sa ClientOrg actuelle.
+    if (input.clientOrgId !== undefined) {
+      if (input.clientOrgId !== null) {
+        await this.assertClientOrgInOrg(orgId, input.clientOrgId);
+      }
+      data.clientOrgId = input.clientOrgId ?? null;
+    }
+
     const row = await forOrg(orgId).contact.update({
       where: { id },
       data: data as never,
     });
     return toContactDto(row as ContactRow);
+  }
+
+  // ── ClientOrg (CRM-05) ────────────────────────────────────────────────────
+
+  async createClientOrg(orgId: string, input: ClientOrgInput): Promise<ClientOrgDto> {
+    const row = await forOrg(orgId).clientOrg.create({
+      data: { name: input.name } as never,
+    });
+    return toClientOrgDto(row as ClientOrgRow);
+  }
+
+  async listClientOrgs(orgId: string): Promise<ClientOrgDto[]> {
+    const rows = await forOrg(orgId).clientOrg.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => toClientOrgDto(r as ClientOrgRow));
+  }
+
+  async getClientOrg(orgId: string, id: string): Promise<ClientOrgDto | null> {
+    const row = await forOrg(orgId).clientOrg.findFirst({ where: { id } });
+    return row ? toClientOrgDto(row as ClientOrgRow) : null;
+  }
+
+  // findOrCreateClientOrg : utilisé par l'import CSV (Plan 04) pour associer la colonne "organisation"
+  // à une ClientOrg idempotente — une seule ClientOrg créée par nom+org même si plusieurs contacts la mentionnent.
+  async findOrCreateClientOrg(orgId: string, name: string): Promise<string> {
+    const existing = await forOrg(orgId).clientOrg.findFirst({ where: { name } });
+    if (existing) return existing.id;
+    const created = await forOrg(orgId).clientOrg.create({
+      data: { name } as never,
+    });
+    return created.id;
+  }
+
+  // IDOR guard : la ClientOrg doit exister DANS l'org (forOrg injecte orgId dans le where du findUnique).
+  private async assertClientOrgInOrg(orgId: string, clientOrgId: string): Promise<void> {
+    const clientOrg = await forOrg(orgId).clientOrg.findUnique({ where: { id: clientOrgId } });
+    if (!clientOrg) {
+      throw new NotFoundException("clientOrgId introuvable dans l'organisation.");
+    }
   }
 
   async listDeals(orgId: string, status?: DealStatus): Promise<DealDto[]> {
