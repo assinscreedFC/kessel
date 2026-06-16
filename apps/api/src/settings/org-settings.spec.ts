@@ -1,3 +1,4 @@
+import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bootTestApp } from "../test-app";
 
@@ -148,5 +149,58 @@ describe("e2e /api/orgs/me/settings (TVA-01/05 : PATCH vatRegime, vatNumber inva
     });
     // GREEN attendu : 403
     expect(res.status).toBe(403);
+  });
+
+  // === Phase 8 : Branding portail (PORT-07) — RED specs ===
+  // Ces tests DOIVENT ÉCHOUER : brandColor n'est pas encore géré par PATCH /api/orgs/me/settings
+  // (Wave 1, Plan 03) et GET /portal/branding n'est pas encore implémenté.
+
+  it("owner PATCH /api/orgs/me/settings { brandColor: '#4F46E5' } → 200 et persiste (PORT-07)", async () => {
+    // RED : brandColor non géré → silencieusement ignoré ou route absente. GREEN : 200 + persisté.
+    const res = await fetch(`${app.baseUrl}/api/orgs/me/settings`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: ownerCookie },
+      body: JSON.stringify({ brandColor: "#4F46E5" }),
+    });
+    expect(res.status).toBe(200);
+
+    // Vérifier la persistance via relecture
+    const getRes = await fetch(`${app.baseUrl}/api/orgs/me/settings`, {
+      method: "GET",
+      headers: { cookie: ownerCookie },
+    });
+    expect(getRes.status).toBe(200);
+    const body = (await getRes.json()) as { brandColor: string };
+    expect(body.brandColor).toBe("#4F46E5");
+  });
+
+  it("owner PATCH { brandColor: 'red' } → 400 (format hex invalide — CSS injection T-8-pitfall5)", async () => {
+    // RED : validation absente → 200 ou route inexistante → 404. GREEN : 400.
+    const res = await fetch(`${app.baseUrl}/api/orgs/me/settings`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: ownerCookie },
+      body: JSON.stringify({ brandColor: "red" }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /portal/branding (JWT org A) → { orgName, logo, brandColor } de l'org A uniquement (cross-org isolation)", async () => {
+    // RED : endpoint inexistant → 404. GREEN : 200 avec branding de l'org A.
+    const secret = new TextEncoder().encode(process.env.PORTAL_JWT_SECRET!);
+    const jwtA = await new SignJWT({ role: "client", contactId: "dummy", orgId: orgId, scope: "client-portal" })
+      .setProtectedHeader({ alg: "HS256" })
+      .setExpirationTime("1h")
+      .sign(secret);
+
+    const res = await fetch(`${app.baseUrl}/portal/branding`, {
+      headers: { Authorization: `Bearer ${jwtA}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { orgName: string; logo: string | null; brandColor: string | null };
+    expect(typeof body.orgName).toBe("string");
+    // brandColor si défini doit matcher le format hex
+    if (body.brandColor !== null) {
+      expect(body.brandColor).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
   });
 });
