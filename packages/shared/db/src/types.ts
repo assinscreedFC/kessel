@@ -11,6 +11,13 @@ export const DealStatus = {
     LOST: "LOST"
 } as const;
 export type DealStatus = (typeof DealStatus)[keyof typeof DealStatus];
+export const ActivityType = {
+    NOTE: "NOTE",
+    CALL: "CALL",
+    EMAIL: "EMAIL",
+    MEETING: "MEETING"
+} as const;
+export type ActivityType = (typeof ActivityType)[keyof typeof ActivityType];
 export const ProposalStatus = {
     DRAFT: "DRAFT",
     SENT: "SENT",
@@ -60,12 +67,19 @@ export type ApiKey = {
     revokedAt: Timestamp | null;
     createdAt: Generated<Timestamp>;
 };
+export type ClientOrg = {
+    id: string;
+    orgId: string;
+    name: string;
+    createdAt: Generated<Timestamp>;
+};
 export type Contact = {
     id: string;
     orgId: string;
     name: string;
     email: string;
     organizationName: string | null;
+    clientOrgId: string | null;
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
 };
@@ -76,8 +90,17 @@ export type Deal = {
     title: string;
     status: Generated<DealStatus>;
     amount: string | null;
+    position: Generated<number>;
+    clientOrgId: string | null;
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
+};
+export type DealActivity = {
+    id: string;
+    dealId: string;
+    type: ActivityType;
+    content: string;
+    createdAt: Generated<Timestamp>;
 };
 export type Organization = {
     id: string;
@@ -229,8 +252,10 @@ export type WebhookEndpoint = {
 };
 export type DB = {
     ApiKey: ApiKey;
+    ClientOrg: ClientOrg;
     Contact: Contact;
     Deal: Deal;
+    DealActivity: DealActivity;
     organization: Organization;
     OrgNote: OrgNote;
     Payment: Payment;

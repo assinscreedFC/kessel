@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { forOrg } from "@kessel/db";
+import { basePrisma, forOrg } from "@kessel/db";
 import type {
+  ActivityType,
   ClientOrgDto,
   ClientOrgInput,
   ContactDto,
   ContactInput,
+  DealActivityDto,
+  DealActivityInput,
   DealDto,
   DealInput,
   DealStatus,
+  MoveDealInput,
 } from "@kessel/shared";
 
 // CrmService — logique domaine CRM (@kessel/crm, type:domain scope:crm).
@@ -34,6 +38,17 @@ type ContactRow = {
 type ClientOrgRow = {
   id: string;
   name: string;
+  createdAt: Date;
+};
+
+// Forme brute d'une ligne DealActivity telle que renvoyée par basePrisma.dealActivity.* .
+// DealActivity est hors SCOPED_MODELS (pas de colonne orgId) — accès via basePrisma uniquement.
+// L'isolation cross-tenant est garantie par assertDealInOrg (IDOR guard via Deal parent).
+type DealActivityRow = {
+  id: string;
+  dealId: string;
+  type: ActivityType;
+  content: string;
   createdAt: Date;
 };
 
@@ -82,6 +97,16 @@ function toDealDto(row: DealRow): DealDto {
     clientOrgId: row.clientOrgId ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+function toDealActivityDto(row: DealActivityRow): DealActivityDto {
+  return {
+    id: row.id,
+    dealId: row.dealId,
+    type: row.type,
+    content: row.content,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 
@@ -229,6 +254,86 @@ export class CrmService {
       data: data as never,
     });
     return toDealDto(row as DealRow);
+  }
+
+  // ── Deal Move (CRM-04) ───────────────────────────────────────────────────
+
+  // IDOR guard : le deal doit exister DANS l'org (forOrg injecte orgId dans le where du findFirst).
+  // Utilisé par moveDeal, addActivity, listActivities — DealActivity hors SCOPED_MODELS (Pitfall 1).
+  private async assertDealInOrg(orgId: string, dealId: string): Promise<void> {
+    const deal = await forOrg(orgId).deal.findFirst({ where: { id: dealId } });
+    if (!deal) {
+      throw new NotFoundException("dealId introuvable dans l'organisation.");
+    }
+  }
+
+  // CRM-04 : déplace un deal vers une colonne cible (status) à la position indiquée,
+  // en réindexant toute la colonne cible 0..n dans une $transaction atomique (T-6-10).
+  async moveDeal(orgId: string, id: string, input: MoveDealInput): Promise<DealDto> {
+    // IDOR : vérifier que le deal appartient à l'org avant toute écriture (T-6-08).
+    await this.assertDealInOrg(orgId, id);
+
+    // Charger tous les deals de la colonne cible triés par position.
+    const colDeals = await forOrg(orgId).deal.findMany({
+      where: { status: input.status },
+      orderBy: { position: "asc" },
+    });
+
+    // Retirer le deal déplacé de la colonne cible s'il y est déjà (cas intra-colonne).
+    const filtered = colDeals.filter((d) => (d as { id: string }).id !== id);
+
+    // Clamp la position cible dans [0, filtered.length] (insertion en fin si dépassement).
+    const pos = Math.max(0, Math.min(input.position, filtered.length));
+
+    // Insérer l'id du deal déplacé à la position cible.
+    filtered.splice(pos, 0, { id } as (typeof filtered)[number]);
+
+    // Construire les updates : 1 update status+position pour le deal déplacé + updates de position
+    // pour tous les autres deals de la colonne cible (réindexation 0..n sans collision).
+    const updates = filtered.map((d, i) => {
+      const dealId = (d as { id: string }).id;
+      if (dealId === id) {
+        return basePrisma.deal.update({
+          where: { id: dealId },
+          data: { status: input.status, position: i },
+        });
+      }
+      return basePrisma.deal.update({
+        where: { id: dealId },
+        data: { position: i },
+      });
+    });
+
+    // Exécuter tous les updates en une seule transaction atomique (T-6-10).
+    await basePrisma.$transaction(updates);
+
+    // Relire le deal mis à jour via forOrg pour respecter l'isolation tenant.
+    const updated = await forOrg(orgId).deal.findFirst({ where: { id } });
+    return toDealDto(updated as DealRow);
+  }
+
+  // ── DealActivity (CRM-08) ────────────────────────────────────────────────
+
+  // CRM-08 : ajoute une activité sur un deal.
+  // IDOR : vérifier que dealId appartient à l'org AVANT tout accès basePrisma.dealActivity (T-6-07).
+  // DealActivity hors SCOPED_MODELS — isolation uniquement via le guard deal parent.
+  async addActivity(orgId: string, dealId: string, input: DealActivityInput): Promise<DealActivityDto> {
+    await this.assertDealInOrg(orgId, dealId);
+    const row = await basePrisma.dealActivity.create({
+      data: { dealId, type: input.type, content: input.content },
+    });
+    return toDealActivityDto(row as DealActivityRow);
+  }
+
+  // CRM-08 : retourne la timeline d'activités d'un deal, triée desc (plus récent en premier).
+  // IDOR : même guard deal parent que addActivity (T-6-07).
+  async listActivities(orgId: string, dealId: string): Promise<DealActivityDto[]> {
+    await this.assertDealInOrg(orgId, dealId);
+    const rows = await basePrisma.dealActivity.findMany({
+      where: { dealId },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => toDealActivityDto(r as DealActivityRow));
   }
 
   // IDOR guard : le contact doit exister DANS l'org (forOrg injecte orgId dans le where du findUnique).
