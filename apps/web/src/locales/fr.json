@@ -1,1 +1,39 @@
-{}
+{
+  "settings_vat": {
+    "title": "TVA & Localisation",
+    "regime": {
+      "label": "Régime de TVA",
+      "franchise": "Franchise en base (art. 293B)",
+      "normal": "Régime normal",
+      "intracom": "Intracommunautaire (autoliquidation)"
+    },
+    "vat_number": {
+      "label": "Numéro de TVA",
+      "placeholder": "FR12345678901",
+      "helper": "Format validé selon le pays sélectionné.",
+      "error_invalid": "Numéro de TVA invalide pour ce pays."
+    },
+    "country": {
+      "label": "Pays"
+    },
+    "default_locale": {
+      "label": "Langue par défaut",
+      "fr": "Français (FR)",
+      "en": "English (EN)"
+    },
+    "save_button": "Enregistrer",
+    "save_pending": "Enregistrement…",
+    "toast_success": "Paramètres enregistrés.",
+    "toast_error": "Impossible d'enregistrer. Vérifiez les champs et réessayez.",
+    "load_error_heading": "Impossible de charger les paramètres.",
+    "load_error_body": "Vérifiez votre connexion et réessayez.",
+    "retry": "Réessayer"
+  },
+  "vat_totals": {
+    "ht": "Total HT",
+    "vat_rate": "TVA {{rate}}%",
+    "ttc": "Total TTC",
+    "mention_franchise": "Article 293B du CGI — TVA non applicable",
+    "mention_intracom": "Autoliquidation — TVA due par le preneur"
+  }
+}

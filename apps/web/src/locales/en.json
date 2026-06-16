@@ -1,1 +1,39 @@
-{}
+{
+  "settings_vat": {
+    "title": "VAT & Localisation",
+    "regime": {
+      "label": "VAT Regime",
+      "franchise": "VAT Exempt (art. 293B)",
+      "normal": "Standard Rate",
+      "intracom": "Intra-EU (reverse charge)"
+    },
+    "vat_number": {
+      "label": "VAT Number",
+      "placeholder": "FR12345678901",
+      "helper": "Format validated for selected country.",
+      "error_invalid": "Invalid VAT number for this country."
+    },
+    "country": {
+      "label": "Country"
+    },
+    "default_locale": {
+      "label": "Default Language",
+      "fr": "Français (FR)",
+      "en": "English (EN)"
+    },
+    "save_button": "Save",
+    "save_pending": "Saving…",
+    "toast_success": "Settings saved.",
+    "toast_error": "Could not save. Check the fields and try again.",
+    "load_error_heading": "Could not load settings.",
+    "load_error_body": "Check your connection and try again.",
+    "retry": "Retry"
+  },
+  "vat_totals": {
+    "ht": "Subtotal (excl. VAT)",
+    "vat_rate": "VAT {{rate}}%",
+    "ttc": "Total (incl. VAT)",
+    "mention_franchise": "VAT exempt under article 293B CGI",
+    "mention_intracom": "Reverse charge — VAT due by recipient"
+  }
+}

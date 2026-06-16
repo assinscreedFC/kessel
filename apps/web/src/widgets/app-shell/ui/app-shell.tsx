@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Key, LayoutTemplate, Tag, Users } from "lucide-react";
+import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Globe, Key, LayoutTemplate, Receipt, Tag, Users } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useLang } from "@/shared/lib/use-lang";
 
 // App-shell — couche `widgets` de la FSD. Layout unique (02-UI-SPEC) réutilisé par toutes les
 // pages : sidebar fixe 240px (bg-white border-r) + zone content slate-50.
@@ -37,6 +38,8 @@ function NavItem({ to, icon: Icon, label }: NavItemProps) {
 }
 
 function Sidebar() {
+  const { lang, switchLang } = useLang();
+
   return (
     <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
       <div className="px-4 py-5 text-base font-semibold tracking-tight">Kessel</div>
@@ -51,7 +54,38 @@ function Sidebar() {
         <NavItem to="/pricing" icon={Tag} label="Tarifs" />
         <NavItem to="/templates" icon={LayoutTemplate} label="Templates" />
         <NavItem to="/settings/api" icon={Key} label="API & Webhooks" />
+        <NavItem to="/settings/vat" icon={Receipt} label="TVA & Localisation" />
       </nav>
+      <div className="mt-auto border-t border-slate-200 px-4 py-3">
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Globe className="h-3.5 w-3.5" />
+          <button
+            aria-pressed={lang === "fr"}
+            className={cn(
+              "h-6 rounded px-2 text-xs",
+              lang === "fr"
+                ? "bg-slate-900 font-semibold text-white"
+                : "text-slate-600 hover:bg-slate-100",
+            )}
+            onClick={() => switchLang("fr")}
+          >
+            FR
+          </button>
+          <span className="text-slate-300">|</span>
+          <button
+            aria-pressed={lang === "en"}
+            className={cn(
+              "h-6 rounded px-2 text-xs",
+              lang === "en"
+                ? "bg-slate-900 font-semibold text-white"
+                : "text-slate-600 hover:bg-slate-100",
+            )}
+            onClick={() => switchLang("en")}
+          >
+            EN
+          </button>
+        </div>
+      </div>
     </aside>
   );
 }
