@@ -4,6 +4,12 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   : ColumnType<T, T | undefined, T>;
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export const VatRegime = {
+    FRANCHISE: "FRANCHISE",
+    NORMAL: "NORMAL",
+    INTRACOM: "INTRACOM"
+} as const;
+export type VatRegime = (typeof VatRegime)[keyof typeof VatRegime];
 export const DealStatus = {
     LEAD: "LEAD",
     PROPOSAL_SENT: "PROPOSAL_SENT",
@@ -110,6 +116,10 @@ export type Organization = {
     metadata: string | null;
     createdAt: Generated<Timestamp>;
     defaultDepositPercent: Generated<number>;
+    vatRegime: Generated<VatRegime>;
+    vatNumber: string | null;
+    country: Generated<string>;
+    defaultLocale: Generated<string>;
 };
 export type OrgNote = {
     id: string;
@@ -208,6 +218,7 @@ export type QuoteLine = {
     description: string;
     quantity: Generated<string>;
     unitPrice: string;
+    vatRate: Generated<string>;
     position: number;
 };
 export type Signature = {

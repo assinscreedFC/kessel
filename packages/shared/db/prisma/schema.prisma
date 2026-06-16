@@ -40,6 +40,11 @@ model Organization {
   metadata             String? // colonne canonique Better Auth (JSON sérialisé, nullable)
   createdAt            DateTime  @default(now())
   defaultDepositPercent Int      @default(30) // % acompte par défaut org (PAY-01, Phase 3)
+  // === TVA UE (Phase 7, TVA-01) — colonnes Prisma-only, Better Auth les ignore ===
+  vatRegime     VatRegime @default(NORMAL)
+  vatNumber     String?
+  country       String    @default("FR")
+  defaultLocale String    @default("fr")
   notes     OrgNote[]
   contacts  Contact[]
   deals     Deal[]
@@ -69,6 +74,15 @@ model OrgNote {
   org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
+}
+
+// === TVA UE (Phase 7, TVA-01) ===
+// VatRegime : régime TVA de l'organisation. Ordre fixe — FRANCHISE (franchise art. 293B),
+// NORMAL (TVA applicable au taux par ligne), INTRACOM (autoliquidation B2B UE).
+enum VatRegime {
+  FRANCHISE
+  NORMAL
+  INTRACOM
 }
 
 // === CRM minimal (Phase 2) ===
@@ -241,6 +255,7 @@ model QuoteLine {
   description String
   quantity    Decimal @default(1) @db.Decimal(12, 2)
   unitPrice   Decimal @db.Decimal(12, 2)
+  vatRate     Decimal @default(0.20) @db.Decimal(5, 4) // taux TVA par ligne (0.20 = 20%) — backfill 0.20 sur lignes existantes
   position    Int
   proposal    Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
 
