@@ -42,6 +42,7 @@ import { ClientPortalGuard } from "./portal/guards/client-portal.guard";
 import { V1Module } from "./v1/v1.module";
 import { WebhooksOutboundModule } from "./webhooks/webhooks-outbound.module";
 import { RbacModule } from "./rbac/rbac.module";
+import { CrmOverviewService } from "./crm/crm-overview.service";
 
 // App shell NestJS (FOUND-02/03). AuthModule.forRoot monte l'instance Better Auth (source
 // canonique org) + installe un AuthGuard GLOBAL : toutes les routes sont protégées par défaut.
@@ -96,6 +97,7 @@ import { RbacModule } from "./rbac/rbac.module";
   // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).
   providers: [
     CrmService,
+    CrmOverviewService,
     PdfService,
     ProposalsService,
     SigningService,
