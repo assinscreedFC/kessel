@@ -120,6 +120,7 @@ export type Organization = {
     vatNumber: string | null;
     country: Generated<string>;
     defaultLocale: Generated<string>;
+    brandColor: string | null;
 };
 export type OrgNote = {
     id: string;
@@ -140,6 +141,16 @@ export type Payment = {
     paymentTokenHash: string | null;
     createdAt: Generated<Timestamp>;
     updatedAt: Timestamp;
+};
+export type PortalFile = {
+    id: string;
+    orgId: string;
+    contactId: string;
+    filename: string;
+    objectKey: string;
+    contentType: string;
+    sizeBytes: number;
+    uploadedAt: Generated<Timestamp>;
 };
 export type PortalSession = {
     id: string;
@@ -270,6 +281,7 @@ export type DB = {
     organization: Organization;
     OrgNote: OrgNote;
     Payment: Payment;
+    PortalFile: PortalFile;
     PortalSession: PortalSession;
     PricingItem: PricingItem;
     ProcessedStripeEvent: ProcessedStripeEvent;
