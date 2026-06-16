@@ -21,11 +21,15 @@ describe("envValidationSchema — validation Stripe au boot", () => {
     expect(result.error?.message).toMatch(/STRIPE_SECRET_KEY/);
   });
 
-  it("ne retourne pas d'erreur si STRIPE_SECRET_KEY présent et STRIPE_WEBHOOK_SECRET absent", () => {
-    // Arrange — STRIPE_WEBHOOK_SECRET optionnel : ne crash pas
+  it("ne retourne pas d'erreur si tous les requis sont présents et les optionnels absents", () => {
+    // Arrange — STRIPE_WEBHOOK_SECRET optionnel : ne crash pas.
+    // PORTAL_JWT_SECRET (>=32) et WEBHOOK_ENCRYPTION_KEY (64 hex) sont devenus requis
+    // en Phases 4/5 — le fixture "valide" doit les inclure.
     const input = {
       DATABASE_URL: "postgresql://localhost/test",
       STRIPE_SECRET_KEY: "sk_test_valid_key",
+      PORTAL_JWT_SECRET: "a".repeat(32),
+      WEBHOOK_ENCRYPTION_KEY: "a".repeat(64),
     };
     // Act
     const result = envValidationSchema.validate(input);
