@@ -13,6 +13,7 @@ import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-p
 import { PublicPaymentPage } from "@/pages/public-payment/ui/public-payment-page";
 import { ProjectsPage } from "@/pages/projects/ui/projects-page";
 import { ProjectDetailPage } from "@/pages/project-detail/ui/project-detail-page";
+import { PipelinePage } from "@/pages/pipeline/ui/pipeline-page";
 import { SettingsApiPage } from "@/pages/settings-api/ui/settings-api-page";
 import { Toaster } from "@/shared/ui/sonner";
 
@@ -38,6 +39,7 @@ export function App() {
             <Route path="/dataset" element={<DatasetPage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/pipeline" element={<PipelinePage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
             <Route path="/settings/api" element={<SettingsApiPage />} />

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Brain, Briefcase, FileText, FolderKanban, Key, LayoutTemplate, Tag, Users } from "lucide-react";
+import { Brain, Briefcase, Columns3, FileText, FolderKanban, Key, LayoutTemplate, Tag, Users } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
 // App-shell — couche `widgets` de la FSD. Layout unique (02-UI-SPEC) réutilisé par toutes les
@@ -43,6 +43,7 @@ function Sidebar() {
       <nav className="flex flex-col gap-1 px-2">
         <NavItem to="/" icon={Users} label="Contacts" />
         <NavItem to="/deals" icon={Briefcase} label="Deals" />
+        <NavItem to="/pipeline" icon={Columns3} label="Pipeline" />
         <NavItem to="/projects" icon={FolderKanban} label="Projets" />
         <NavItem to="/proposals" icon={FileText} label="Propositions" />
         <NavItem to="/dataset" icon={Brain} label="Dataset IA" />
