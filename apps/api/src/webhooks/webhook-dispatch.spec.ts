@@ -228,7 +228,7 @@ describe("e2e outbound webhook dispatch (API-04/05 : dispatch + HMAC + delivery 
     const deliveriesForB = await app.basePrisma.webhookDelivery.findMany({
       where: { endpoint: { orgId: (await (async () => {
         // get org-B id from the B key
-        const apiKey = await app.basePrisma.apiKey.findFirst({ where: { prefix: { startsWith: "ksl_live_" } } });
+        const apiKey = await app.basePrisma.apiKey.findFirst({ where: { prefix: { startsWith: "ksl_live_" } }, orderBy: { createdAt: "desc" } });
         return apiKey?.orgId ?? "unknown";
       })()) } },
     });

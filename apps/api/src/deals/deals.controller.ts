@@ -57,7 +57,12 @@ export class DealsController {
     const deal = await this.crm.createDeal(orgId, dto);
     // WEBHOOKS (API-04, FOUND-05) : émission deal.created depuis la couche orchestration apps/api.
     // @kessel/crm ne connaît pas EventEmitter2 (domain->infrastructure interdit).
-    this.events.emit("deal.created", {
+    // emitAsync() attend la résolution de tous les handlers async (@OnEvent) avant de retourner,
+    // ce qui garantit que la WebhookDelivery est tracée avant la réponse HTTP (comportement attendu
+    // par webhook-dispatch.spec.ts test 1 qui vérifie le statut sans sleep après waitForRequest).
+    // Timeout implicite via AbortSignal.timeout(10_000) dans deliverOne — le handler ne bloque pas
+    // indéfiniment même si l'endpoint cible est lent.
+    await this.events.emitAsync("deal.created", {
       dealId: deal.id,
       orgId,
       title: deal.title,
