@@ -18,6 +18,7 @@ import { PipelinePage } from "@/pages/pipeline/ui/pipeline-page";
 import { OrganisationsPage } from "@/pages/organisations/ui/organisations-page";
 import { OrganisationDetailPage } from "@/pages/organisations/ui/organisation-detail-page";
 import { SettingsApiPage } from "@/pages/settings-api/ui/settings-api-page";
+import { SettingsVatPage } from "@/pages/settings-vat/ui/settings-vat-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -49,6 +50,7 @@ export function App() {
             <Route path="/organisations" element={<OrganisationsPage />} />
             <Route path="/organisations/:id" element={<OrganisationDetailPage />} />
             <Route path="/settings/api" element={<SettingsApiPage />} />
+            <Route path="/settings/vat" element={<SettingsVatPage />} />
           </Route>
           {/* Éditeur pleine largeur (échappe au cap max-w-6xl) : proposition + template. */}
           <Route element={<WideAppShell />}>

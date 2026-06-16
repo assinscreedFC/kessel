@@ -8,6 +8,17 @@ import { publicApi } from "@/shared/api/public-client";
 
 // DTO public renvoyé par GET /api/public/proposals/:token (miroir du PublicProposalDto serveur,
 // Plan 05-02). Aucun orgId/dealId brut (anti-énumération). Montants en string (Decimal au boundary).
+
+// VatTotals shape — miroir exact de VatTotalsDto Plan 07-03 (packages/shared/src/contracts/proposals.ts).
+// NEVER diverge from the backend shape (contract bug risk — T-7-15).
+export interface VatTotalsDto {
+  ht: string;
+  tva: { rate: number; amount: string }[];
+  ttc: string;
+  regime: "FRANCHISE" | "NORMAL" | "INTRACOM";
+  legalMention: string | null;
+}
+
 export interface PublicProposal {
   title: string;
   bodyJson: unknown;
@@ -17,11 +28,13 @@ export interface PublicProposal {
     quantity: string;
     unitPrice: string;
     lineTotal: string;
+    vatRate: string;
     position: number;
   }[];
   grandTotal: string;
   orgName: string;
   status: string;
+  vatTotals: VatTotalsDto;
 }
 
 // Réponse de POST /api/public/proposals/:token/sign (Plan 05-03). `alreadySigned` distingue le cas

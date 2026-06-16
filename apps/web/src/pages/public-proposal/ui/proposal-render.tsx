@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { useTranslation } from "react-i18next";
 import { PROPOSAL_EXTENSIONS } from "@kessel/shared";
 import { Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { formatEur } from "@/features/quote-builder/lib/totals";
-import { downloadUnsignedPdf, type PublicProposal } from "../api";
+import { downloadUnsignedPdf, type PublicProposal, type VatTotalsDto } from "../api";
 
 // Rendu LECTURE SEULE de la proposition côté client public (DELIV-01). FIDÉLITÉ : on rend le bodyJson
 // avec la MÊME liste PROPOSAL_EXTENSIONS (@kessel/shared) que l'éditeur opérateur (Phase 3) et que le
@@ -69,6 +70,8 @@ export function ProposalRender({ proposal, token }: ProposalRenderProps) {
         </section>
       )}
 
+      {hasLines && <VatTotalsBlock vatTotals={proposal.vatTotals} />}
+
       <div className="mt-8">
         <Button variant="outline" onClick={() => downloadUnsignedPdf(token)}>
           <Download className="mr-2 h-4 w-4" />
@@ -76,6 +79,60 @@ export function ProposalRender({ proposal, token }: ProposalRenderProps) {
         </Button>
       </div>
     </div>
+  );
+}
+
+// Bloc récapitulatif TVA (Surface 2 — 07-UI-SPEC). Inséré après la table devis.
+// Montants via Intl.NumberFormat locale-aware (fr-FR ou en-GB selon i18n.language).
+// NE PAS utiliser formatEur (hardcodé fr-FR, exception UI-SPEC — hors scope).
+function VatTotalsBlock({ vatTotals }: { vatTotals: VatTotalsDto }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === "en" ? "en-GB" : "fr-FR";
+
+  function formatAmount(amount: string): string {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR",
+    }).format(Number(amount));
+  }
+
+  return (
+    <section
+      aria-label="Récapitulatif TVA"
+      className="mt-4 border-t border-slate-200 pt-4"
+    >
+      <table className="ml-auto max-w-xs w-full text-sm">
+        <tbody>
+          <tr>
+            <td className="py-1 text-slate-600">{t("vat_totals.ht")}</td>
+            <td className="py-1 text-right tabular-nums text-slate-900">
+              {formatAmount(vatTotals.ht)}
+            </td>
+          </tr>
+          {vatTotals.tva.map((entry) => (
+            <tr key={entry.rate}>
+              <td className="py-1 text-slate-600">
+                {t("vat_totals.vat_rate", { rate: entry.rate })}
+              </td>
+              <td className="py-1 text-right tabular-nums text-slate-900">
+                {formatAmount(entry.amount)}
+              </td>
+            </tr>
+          ))}
+          <tr>
+            <td className="py-1 font-semibold text-slate-900">{t("vat_totals.ttc")}</td>
+            <td className="py-1 text-right font-semibold tabular-nums text-slate-900">
+              {formatAmount(vatTotals.ttc)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      {vatTotals.legalMention && (
+        <p className="mt-3 border-l-2 border-slate-200 pl-3 text-xs text-slate-500">
+          {vatTotals.legalMention}
+        </p>
+      )}
+    </section>
   );
 }
 
