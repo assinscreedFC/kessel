@@ -12,7 +12,9 @@ import type {
   QuoteLineDto,
   QuoteLineInput,
   UpdateProposalInput,
+  VatTotalsDto,
 } from "@kessel/shared";
+import { computeVatTotals } from "@kessel/shared";
 import { grandTotal, lineTotal } from "./money";
 
 // ProposalsService — logique domaine propositions & tarifs (@kessel/proposals, type:domain scope:proposals).
@@ -42,6 +44,7 @@ type QuoteLineRow = {
   quantity: DecimalLike;
   unitPrice: DecimalLike;
   position: number;
+  vatRate: DecimalLike;
 };
 
 type ProposalRow = {
@@ -82,13 +85,24 @@ function toQuoteLineDto(row: QuoteLineRow): QuoteLineDto {
     unitPrice,
     lineTotal: lineTotal(quantity, unitPrice),
     position: row.position,
+    vatRate: row.vatRate.toString(),
   };
 }
 
-function toProposalDto(row: ProposalRow): ProposalDto {
+function toProposalDto(row: ProposalRow, vatRegime: "FRANCHISE" | "NORMAL" | "INTRACOM"): ProposalDto {
   const lines = [...row.lines]
     .sort((a, b) => a.position - b.position)
     .map(toQuoteLineDto);
+
+  const vatTotals: VatTotalsDto = computeVatTotals(
+    lines.map((l) => ({
+      unitPrice: l.unitPrice,
+      quantity: l.quantity,
+      vatRate: Number(l.vatRate),
+    })),
+    vatRegime,
+  );
+
   return {
     id: row.id,
     dealId: row.dealId,
@@ -99,9 +113,21 @@ function toProposalDto(row: ProposalRow): ProposalDto {
     grandTotal: grandTotal(
       lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice })),
     ),
+    vatTotals,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+// Lit le régime TVA de l'org (1 seule lecture par appel de service — anti N+1).
+async function readOrgVatRegime(orgId: string): Promise<"FRANCHISE" | "NORMAL" | "INTRACOM"> {
+  const org = (await forOrg(orgId).organization.findUnique({
+    where: { id: orgId },
+    select: { vatRegime: true } as never,
+  })) as { vatRegime: string } | null;
+  const regime = org?.vatRegime ?? "NORMAL";
+  if (regime === "FRANCHISE" || regime === "NORMAL" || regime === "INTRACOM") return regime;
+  return "NORMAL";
 }
 
 function toTemplateDto(row: TemplateRow): ProposalTemplateDto {
@@ -138,19 +164,25 @@ export class ProposalsService {
   // === Proposals ===
 
   async listProposals(orgId: string): Promise<ProposalDto[]> {
-    const rows = await forOrg(orgId).proposal.findMany({
-      orderBy: { createdAt: "desc" },
-      include: INCLUDE_LINES as never,
-    });
-    return rows.map((r) => toProposalDto(r as unknown as ProposalRow));
+    const [rows, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.findMany({
+        orderBy: { createdAt: "desc" },
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return rows.map((r) => toProposalDto(r as unknown as ProposalRow, vatRegime));
   }
 
   async getProposal(orgId: string, id: string): Promise<ProposalDto | null> {
-    const row = await forOrg(orgId).proposal.findFirst({
-      where: { id },
-      include: INCLUDE_LINES as never,
-    });
-    return row ? toProposalDto(row as unknown as ProposalRow) : null;
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.findFirst({
+        where: { id },
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return row ? toProposalDto(row as unknown as ProposalRow, vatRegime) : null;
   }
 
   // PROP-07 : rend le PDF d'une proposition de l'org. Réutilise getProposal (scopé forOrg) -> 404
@@ -172,6 +204,7 @@ export class ProposalsService {
       bodyJson: proposal.bodyJson,
       lines: proposal.lines,
       grandTotal: proposal.grandTotal,
+      vatTotals: proposal.vatTotals,
       org: { name: org?.name ?? "" },
     });
   }
@@ -187,24 +220,28 @@ export class ProposalsService {
     // `lines` absent/vide -> comportement Phase 3 inchangé (proposition sans ligne).
     const lines = input.lines ?? [];
 
-    const row = await forOrg(orgId).proposal.create({
-      data: {
-        dealId: input.dealId,
-        title: input.title,
-        bodyJson: input.bodyJson as never,
-        status: "DRAFT",
-        lines: {
-          create: lines.map((l) => ({
-            description: l.description,
-            quantity: l.quantity,
-            unitPrice: l.unitPrice,
-            position: l.position,
-          })),
-        },
-      } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.create({
+        data: {
+          dealId: input.dealId,
+          title: input.title,
+          bodyJson: input.bodyJson as never,
+          status: "DRAFT",
+          lines: {
+            create: lines.map((l) => ({
+              description: l.description,
+              quantity: l.quantity,
+              unitPrice: l.unitPrice,
+              position: l.position,
+              vatRate: l.vatRate ?? 0.20,
+            })),
+          },
+        } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async createFromTemplate(orgId: string, input: CreateFromTemplateInput): Promise<ProposalDto> {
@@ -219,16 +256,19 @@ export class ProposalsService {
     await this.assertDealInOrg(orgId, input.dealId);
 
     // Le SERVEUR copie le bodyJson du template (anti-tampering : le client ne l'envoie jamais).
-    const row = await forOrg(orgId).proposal.create({
-      data: {
-        dealId: input.dealId,
-        title: input.title,
-        bodyJson: (template as unknown as TemplateRow).bodyJson as never,
-        status: "DRAFT",
-      } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.create({
+        data: {
+          dealId: input.dealId,
+          title: input.title,
+          bodyJson: (template as unknown as TemplateRow).bodyJson as never,
+          status: "DRAFT",
+        } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async updateProposal(orgId: string, id: string, input: UpdateProposalInput): Promise<ProposalDto> {
@@ -238,12 +278,15 @@ export class ProposalsService {
     if (input.title !== undefined) data.title = input.title;
     if (input.bodyJson !== undefined) data.bodyJson = input.bodyJson;
 
-    const row = await forOrg(orgId).proposal.update({
-      where: { id },
-      data: data as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.update({
+        where: { id },
+        data: data as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async deleteProposal(orgId: string, id: string): Promise<void> {
@@ -259,21 +302,25 @@ export class ProposalsService {
   async addQuoteLine(orgId: string, proposalId: string, input: QuoteLineInput): Promise<ProposalDto> {
     await this.assertProposalInOrg(orgId, proposalId);
     // SNAPSHOT : on COPIE description/quantity/unitPrice/position fournis (aucune FK PricingItem).
-    const row = await forOrg(orgId).proposal.update({
-      where: { id: proposalId },
-      data: {
-        lines: {
-          create: {
-            description: input.description,
-            quantity: input.quantity,
-            unitPrice: input.unitPrice,
-            position: input.position,
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.update({
+        where: { id: proposalId },
+        data: {
+          lines: {
+            create: {
+              description: input.description,
+              quantity: input.quantity,
+              unitPrice: input.unitPrice,
+              position: input.position,
+              vatRate: input.vatRate ?? 0.20,
+            },
           },
-        },
-      } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+        } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async updateQuoteLine(
@@ -290,26 +337,33 @@ export class ProposalsService {
     if (input.quantity !== undefined) data.quantity = input.quantity;
     if (input.unitPrice !== undefined) data.unitPrice = input.unitPrice;
     if (input.position !== undefined) data.position = input.position;
+    if (input.vatRate !== undefined) data.vatRate = input.vatRate;
 
     // Update nested : la ligne est ciblée VIA sa Proposal scopée (lines.update where id).
-    const row = await forOrg(orgId).proposal.update({
-      where: { id: proposalId },
-      data: { lines: { update: { where: { id: lineId }, data } } } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.update({
+        where: { id: proposalId },
+        data: { lines: { update: { where: { id: lineId }, data } } } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async deleteQuoteLine(orgId: string, proposalId: string, lineId: string): Promise<ProposalDto> {
     await this.assertProposalInOrg(orgId, proposalId);
     await this.assertLineInProposal(orgId, proposalId, lineId);
 
-    const row = await forOrg(orgId).proposal.update({
-      where: { id: proposalId },
-      data: { lines: { delete: { id: lineId } } } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.update({
+        where: { id: proposalId },
+        data: { lines: { delete: { id: lineId } } } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   async reorderQuoteLines(orgId: string, proposalId: string, orderedIds: string[]): Promise<ProposalDto> {
@@ -322,19 +376,22 @@ export class ProposalsService {
       }
     }
     // Réécrit les positions selon l'ordre fourni (nested updates via la Proposal scopée).
-    const row = await forOrg(orgId).proposal.update({
-      where: { id: proposalId },
-      data: {
-        lines: {
-          update: orderedIds.map((id, index) => ({
-            where: { id },
-            data: { position: index },
-          })),
-        },
-      } as never,
-      include: INCLUDE_LINES as never,
-    });
-    return toProposalDto(row as unknown as ProposalRow);
+    const [row, vatRegime] = await Promise.all([
+      forOrg(orgId).proposal.update({
+        where: { id: proposalId },
+        data: {
+          lines: {
+            update: orderedIds.map((id, index) => ({
+              where: { id },
+              data: { position: index },
+            })),
+          },
+        } as never,
+        include: INCLUDE_LINES as never,
+      }),
+      readOrgVatRegime(orgId),
+    ]);
+    return toProposalDto(row as unknown as ProposalRow, vatRegime);
   }
 
   // === Templates ===

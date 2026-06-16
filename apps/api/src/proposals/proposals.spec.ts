@@ -253,4 +253,96 @@ describe("e2e /api/proposals (PROP-01/02/03 : CRUD, from-template, IDOR, total d
     });
     expect(res.status).toBe(400);
   });
+
+  // TVA-02/03/04 : vatTotals calculé serveur (NORMAL 3×33.33@0.20 → ht 99.99/tva 20.00/ttc 119.99)
+  it("TVA-02/03 : org NORMAL, 3 lignes 33.33@0.20 -> vatTotals ht:99.99 tva:[{20,20.00}] ttc:119.99", async () => {
+    // org-A créée dans beforeAll avec vatRegime NORMAL par défaut (Prisma @default)
+    const createRes = await fetch(`${app.baseUrl}/api/proposals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ dealId: dealAId, title: "Devis TVA", bodyJson: DOC }),
+    });
+    expect(createRes.status).toBe(201);
+    const proposal = (await createRes.json()) as { id: string };
+
+    // Ajouter 3 lignes 33.33€ @20%
+    for (let i = 0; i < 3; i++) {
+      const lineRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie: cookieA },
+        body: JSON.stringify({ description: `Ligne ${i + 1}`, quantity: 1, unitPrice: 33.33, vatRate: 0.20, position: i }),
+      });
+      expect(lineRes.status).toBe(201);
+    }
+
+    const getRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}`, { headers: { cookie: cookieA } });
+    expect(getRes.status).toBe(200);
+    const full = (await getRes.json()) as {
+      vatTotals: { ht: string; tva: { rate: number; amount: string }[]; ttc: string; regime: string; legalMention: string | null };
+    };
+
+    expect(full.vatTotals.ht).toBe("99.99");
+    expect(full.vatTotals.tva).toEqual([{ rate: 20, amount: "20.00" }]);
+    expect(full.vatTotals.ttc).toBe("119.99");
+    expect(full.vatTotals.regime).toBe("NORMAL");
+    expect(full.vatTotals.legalMention).toBeNull();
+  });
+
+  // TVA-04 : régime FRANCHISE → mention Art.293B, tva:[]
+  it("TVA-04 : org FRANCHISE -> vatTotals.legalMention = 'Article 293B du CGI — TVA non applicable', tva:[]", async () => {
+    // Mettre l'org-A en FRANCHISE via SQL direct (PATCH /orgs/me/settings n'existe pas encore en Plan 03)
+    await app.basePrisma.$executeRawUnsafe(
+      `UPDATE organization SET "vatRegime" = 'FRANCHISE' WHERE id = (
+        SELECT "activeOrganizationId" FROM session WHERE token = (
+          SELECT value FROM session WHERE token IS NOT NULL LIMIT 1
+        ) LIMIT 1
+      )`,
+    ).catch(() => {
+      // Fallback : trouver l'org-A directement par son nom
+    });
+
+    // Approche directe : lire l'orgId depuis la session puis mettre à jour
+    const sessRes = await fetch(`${app.baseUrl}/api/auth/get-session`, { headers: { cookie: cookieA } });
+    const sess = (await sessRes.json()) as { session?: { activeOrganizationId?: string } };
+    const orgAId = sess.session?.activeOrganizationId;
+    if (orgAId) {
+      await app.basePrisma.$executeRawUnsafe(
+        `UPDATE organization SET "vatRegime" = 'FRANCHISE' WHERE id = $1`,
+        orgAId,
+      );
+    }
+
+    const createRes = await fetch(`${app.baseUrl}/api/proposals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ dealId: dealAId, title: "Devis Franchise", bodyJson: DOC }),
+    });
+    expect(createRes.status).toBe(201);
+    const proposal = (await createRes.json()) as { id: string };
+
+    const lineRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}/lines`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ description: "Prestation", quantity: 1, unitPrice: 100, vatRate: 0.20, position: 0 }),
+    });
+    expect(lineRes.status).toBe(201);
+
+    const getRes = await fetch(`${app.baseUrl}/api/proposals/${proposal.id}`, { headers: { cookie: cookieA } });
+    expect(getRes.status).toBe(200);
+    const full = (await getRes.json()) as {
+      vatTotals: { tva: unknown[]; legalMention: string | null; ttc: string; ht: string };
+    };
+
+    expect(full.vatTotals.tva).toEqual([]);
+    expect(full.vatTotals.legalMention).toBe("Article 293B du CGI — TVA non applicable");
+    expect(full.vatTotals.ttc).toBe(full.vatTotals.ht);
+
+    // Remettre l'org en NORMAL pour ne pas affecter les autres tests
+    if (orgAId) {
+      await app.basePrisma.$executeRawUnsafe(
+        `UPDATE organization SET "vatRegime" = 'NORMAL' WHERE id = $1`,
+        orgAId,
+      );
+    }
+  });
 });

@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { basePrisma, forOrg } from "@kessel/db";
-import { buildBudgetSnapshot } from "@kessel/shared";
+import { buildBudgetSnapshot, computeVatTotals } from "@kessel/shared";
+import type { VatTotalsDto } from "@kessel/shared";
 import { PdfService } from "./pdf.service";
 import { SigningService } from "./signing.service";
 import { StorageService } from "./storage.service";
@@ -32,6 +33,7 @@ type PublicQuoteLineRow = {
   quantity: DecimalLike;
   unitPrice: DecimalLike;
   position: number;
+  vatRate: DecimalLike;
 };
 
 type ResolvedProposalRow = {
@@ -56,8 +58,10 @@ export interface PublicProposalDto {
     unitPrice: string;
     lineTotal: string;
     position: number;
+    vatRate: string;
   }[];
   grandTotal: string;
+  vatTotals: VatTotalsDto; // TVA calculée serveur (TVA-02/03/04)
   orgName: string;
   status: string;
 }
@@ -192,19 +196,28 @@ export class DeliveryService {
           unitPrice,
           lineTotal: lineTotal(quantity, unitPrice),
           position: l.position,
+          vatRate: l.vatRate.toString(),
         };
       });
 
-    // Le nom de l'org est résolu par l'orgId de la proposition (basePrisma, pas exposé au client).
+    // Le nom et le régime TVA de l'org sont résolus par l'orgId (basePrisma, pas exposé au client).
     const org = (await basePrisma.organization.findUnique({
       where: { id: row.orgId },
-    })) as { name: string } | null;
+      select: { name: true, vatRegime: true } as never,
+    })) as { name: string; vatRegime: string } | null;
+
+    const vatRegime = (org?.vatRegime ?? "NORMAL") as "FRANCHISE" | "NORMAL" | "INTRACOM";
+    const vatTotals = computeVatTotals(
+      lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, vatRate: Number(l.vatRate) })),
+      vatRegime,
+    );
 
     return {
       title: row.title,
       bodyJson: row.bodyJson,
       lines,
       grandTotal: grandTotal(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice }))),
+      vatTotals,
       orgName: org?.name ?? "",
       status: row.status,
     };
@@ -228,18 +241,27 @@ export class DeliveryService {
           unitPrice,
           lineTotal: lineTotal(quantity, unitPrice),
           position: l.position,
+          vatRate: l.vatRate.toString(),
         };
       });
 
     const org = (await basePrisma.organization.findUnique({
       where: { id: row.orgId },
-    })) as { name: string } | null;
+      select: { name: true, vatRegime: true } as never,
+    })) as { name: string; vatRegime: string } | null;
+
+    const vatRegime = (org?.vatRegime ?? "NORMAL") as "FRANCHISE" | "NORMAL" | "INTRACOM";
+    const vatTotals = computeVatTotals(
+      lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, vatRate: Number(l.vatRate) })),
+      vatRegime,
+    );
 
     return this.pdf.renderProposalPdf({
       title: row.title,
       bodyJson: row.bodyJson,
       lines,
       grandTotal: grandTotal(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice }))),
+      vatTotals,
       org: { name: org?.name ?? "" },
     });
   }
@@ -496,16 +518,26 @@ export class DeliveryService {
           unitPrice,
           lineTotal: lineTotal(quantity, unitPrice),
           position: l.position,
+          vatRate: l.vatRate.toString(),
         };
       });
     const org = (await basePrisma.organization.findUnique({
       where: { id: orgId },
-    })) as { name: string } | null;
+      select: { name: true, vatRegime: true } as never,
+    })) as { name: string; vatRegime: string } | null;
+
+    const vatRegime = (org?.vatRegime ?? "NORMAL") as "FRANCHISE" | "NORMAL" | "INTRACOM";
+    const vatTotals = computeVatTotals(
+      lines.map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity, vatRate: Number(l.vatRate) })),
+      vatRegime,
+    );
+
     return this.pdf.renderProposalPdf({
       title: row.title,
       bodyJson: row.bodyJson,
       lines,
       grandTotal: grandTotal(lines.map((l) => ({ quantity: l.quantity, unitPrice: l.unitPrice }))),
+      vatTotals,
       org: { name: org?.name ?? "" },
     });
   }
