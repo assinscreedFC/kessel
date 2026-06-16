@@ -22,6 +22,8 @@ import { HealthController } from "./health/health.controller";
 import { ProjectsController } from "./projects/projects.controller";
 import { TasksController } from "./projects/tasks.controller";
 import { SettingsController } from "./settings/settings.controller";
+import { OrgSettingsController } from "./settings/org-settings.controller";
+import { OrgSettingsService } from "./settings/org-settings.service";
 import { ClientOrgsController } from "./client-orgs/client-orgs.controller";
 import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
@@ -75,6 +77,7 @@ import { CrmOverviewService } from "./crm/crm-overview.service";
   controllers: [
     HealthController,
     SettingsController,
+    OrgSettingsController,
     ClientOrgsController,
     ContactsController,
     DealsController,
@@ -112,6 +115,7 @@ import { CrmOverviewService } from "./crm/crm-overview.service";
     PortalAuthService,
     PortalDataService,
     ClientPortalGuard,
+    OrgSettingsService,
   ],
 })
 export class AppModule {}
