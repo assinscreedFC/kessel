@@ -1,6 +1,6 @@
 import "reflect-metadata";
-import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { I18nValidationPipe, I18nValidationExceptionFilter } from "nestjs-i18n";
 import bodyParser from "body-parser";
 import { AppModule } from "./app.module";
 
@@ -39,7 +39,8 @@ export async function bootstrap() {
   //   whitelist: true   -> strip les propriétés non décorées (anti-overposting).
   //   transform: true    -> instancie le DTO (plainToInstance via class-transformer) + coerce les types
   //                         (ex: query string -> enum), nécessaire pour que @IsEnum/@IsNumber s'appliquent.
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(new I18nValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalFilters(new I18nValidationExceptionFilter({ detailedErrors: false }));
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

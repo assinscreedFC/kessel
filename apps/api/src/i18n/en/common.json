@@ -1,1 +1,18 @@
-{}
+{
+  "validation": {
+    "IS_UUID": "{{property}} must be a valid UUID",
+    "IS_NOT_EMPTY": "{{property}} must not be empty",
+    "IS_STRING": "{{property}} must be a string",
+    "MAX_LENGTH": "{{property}} must not exceed {{constraints.0}} characters",
+    "IS_NUMBER": "{{property}} must be a number",
+    "MIN": "{{property}} must be at least {{constraints.0}}",
+    "IS_ENUM": "{{property}} must be one of the following values: {{constraints.0}}",
+    "IS_OBJECT": "{{property}} must be an object"
+  },
+  "errors": {
+    "not_found": "Resource not found",
+    "forbidden": "Access denied",
+    "unauthorized": "Not authenticated",
+    "vat_number_invalid": "Invalid VAT number for this country"
+  }
+}
