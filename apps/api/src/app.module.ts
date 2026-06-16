@@ -22,6 +22,7 @@ import { HealthController } from "./health/health.controller";
 import { ProjectsController } from "./projects/projects.controller";
 import { TasksController } from "./projects/tasks.controller";
 import { SettingsController } from "./settings/settings.controller";
+import { ClientOrgsController } from "./client-orgs/client-orgs.controller";
 import { ContactsController } from "./contacts/contacts.controller";
 import { DealsController } from "./deals/deals.controller";
 import { ProposalsController } from "./proposals/proposals.controller";
@@ -73,6 +74,7 @@ import { RbacModule } from "./rbac/rbac.module";
   controllers: [
     HealthController,
     SettingsController,
+    ClientOrgsController,
     ContactsController,
     DealsController,
     ProposalsController,
