@@ -64,6 +64,8 @@ export interface PublicPaymentView {
   amountCents: number;
   currency: string;
   orgName: string;
+  orgId: string;
+  paymentId: string;
 }
 
 // PaymentReceivedPayload — exported so apps/api StripeWebhookController can type the result.
@@ -239,6 +241,8 @@ export class PaymentService {
       amountCents: payment.amountCents,
       currency: payment.currency,
       orgName,
+      orgId: payment.orgId,
+      paymentId: payment.id,
     };
   }
 

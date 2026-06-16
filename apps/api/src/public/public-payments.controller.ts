@@ -4,6 +4,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Post,
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
@@ -50,5 +51,24 @@ export class PublicPaymentsController {
     dto.currency = view.currency;
     dto.orgName = view.orgName;
     return dto;
+  }
+
+  // POST :token/sepa-setup — crée un SetupIntent SEPA pour le token de paiement donné.
+  //
+  // SÉCURITÉ (T-3-enum) : token inconnu → 404 indifférencié (anti-énumération, même pattern GET).
+  // SÉCURITÉ (T-8-sepa) : orgId résolu via table Payment (jamais metadata.orgId comme autorité).
+  // T-3-card : setupClientSecret jamais loggé.
+  @Post(":token/sepa-setup")
+  async createSepaSetup(
+    @Param("token") token: string,
+  ): Promise<{ setupClientSecret: string }> {
+    const view = await this.payments.getPublicPaymentByToken(token);
+    if (!view) {
+      throw new NotFoundException();
+    }
+    return this.payments.createSepaSetup({
+      paymentId: view.paymentId,
+      orgId: view.orgId,
+    });
   }
 }
