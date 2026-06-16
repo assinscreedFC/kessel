@@ -1,27 +1,29 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bootTestApp } from "./test-app";
 
-// --- viewer block added in Phase 5, plan 05-01 (RED) ---
-// Couvre API-06 : rôle `viewer` (lecture seule), bloqué sur toutes les routes d'écriture (POST/PATCH).
-// Note Open Question 3 (05-RESEARCH) : Better Auth 1.6.18 peut rejeter role:'viewer' hors des valeurs
-// prédéfinies (owner/admin/member). Si addMember rejette, on fallback sur basePrisma.$executeRaw pour
-// insérer le membre directement en SQL (contournement documenté, plan 05-05 clarifiera).
-// Ces tests doivent ÉCHOUER (RED) jusqu'à ce que RolesGuard soit implémenté en plan 05-05.
-
-// Test RBAC (FOUND-03 / T-1-02) + PREUVE D'ÉGALITÉ DES ESPACES D'ID (T-1-10) — Postgres RÉEL, AUCUN mock.
+// Test RBAC (FOUND-03 / T-1-02) + viewer role (API-06) — Postgres RÉEL, AUCUN mock.
+//
+// ARCHITECTURE NOTE (plan 05-05) : une seule instance d'app partagée par les deux suites.
+// Deux appels bootTestApp() dans le même fichier sont impossibles : @kessel/db et @kessel/auth
+// sont des singletons initialisés à l'import (DATABASE_URL lu à la construction). Le premier
+// afterAll/closeDb() détruit le pool ; le deuxième bootTestApp() tente de le réutiliser → erreur.
+// Solution : bootTestApp() au niveau fichier, afterAll() au niveau fichier, tous les describe
+// partagent la même instance.
 //
 // Prouve :
-//  1. owner -> POST /settings = 200 ; member -> POST /settings = 403 (escalade de privilège bloquée
-//     AU CONTRÔLEUR via @OrgRoles(["owner"])).
-//  2. couche ORM : forOrg(autreOrg) n'affecte AUCUNE ligne de l'org cible (row-level, double application).
-//  3. ÉGALITÉ DES ESPACES D'ID (anti faux-vert) : l'orgId vu par la session/@OrgRoles
-//     (Better Auth activeOrganizationId) EST EXACTEMENT l'orgId que forOrg filtre ET le FK OrgNote.orgId,
-//     et il EXISTE dans la table `organization` (pas un id fantôme). Un seul espace d'id.
+//  1. owner -> POST /settings = 200 ; member -> POST /settings = 403 (@OrgRoles bloquage contrôleur).
+//  2. forOrg(autreOrg) n'affecte AUCUNE ligne de l'org cible (row-level isolation).
+//  3. ÉGALITÉ DES ESPACES D'ID (T-1-10) : activeOrganizationId === orgId filtré forOrg === FK.
+//  4. viewer -> GET /api/deals -> 200 ; viewer -> POST/PATCH -> 403 (RolesGuard, API-06).
+//  5. member -> POST /api/deals -> 201 (non bloqué par RolesGuard).
 
 const SIGNUP = "/api/auth/sign-up/email";
 const CREATE_ORG = "/api/auth/organization/create";
 const SET_ACTIVE = "/api/auth/organization/set-active";
 const GET_SESSION = "/api/auth/get-session";
+
+// ─── Shared app instance (file-level) ────────────────────────────────────────
+let app: Awaited<ReturnType<typeof bootTestApp>>;
 
 function cookieFrom(res: Response): string {
   const raw = res.headers.get("set-cookie") ?? "";
@@ -32,31 +34,38 @@ function cookieFrom(res: Response): string {
     .join("; ");
 }
 
-describe("RBAC owner/member + égalité des espaces d'id org (FOUND-03 / T-1-02 / T-1-10, real Postgres)", () => {
-  let app: Awaited<ReturnType<typeof bootTestApp>>;
+async function signup(label: string): Promise<{ cookie: string; userId: string }> {
+  const res = await fetch(`${app.baseUrl}${SIGNUP}`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: `${label}+${Date.now()}-${Math.random().toString(36).slice(2)}@kessel.test`,
+      password: "Sup3r-Secret-Pw!",
+      name: label,
+    }),
+  });
+  expect([200, 201]).toContain(res.status);
+  const body = (await res.json()) as { user: { id: string } };
+  return { cookie: cookieFrom(res), userId: body.user.id };
+}
+
+beforeAll(async () => {
+  app = await bootTestApp();
+});
+
+afterAll(async () => {
+  await app?.stop();
+});
+
+// ─── Suite 1 : RBAC owner/member + égalité des espaces d'id org ──────────────
+
+describe("RBAC owner/member + égalité des espaces d'id org (FOUND-03 / T-1-02 / T-1-10)", () => {
   let ownerCookie: string;
   let memberCookie: string;
   let orgId: string;
   let memberUserId: string;
 
-  async function signup(label: string): Promise<{ cookie: string; userId: string }> {
-    const res = await fetch(`${app.baseUrl}${SIGNUP}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: `${label}+${Date.now()}@kessel.test`,
-        password: "Sup3r-Secret-Pw!",
-        name: label,
-      }),
-    });
-    expect([200, 201]).toContain(res.status);
-    const body = (await res.json()) as { user: { id: string } };
-    return { cookie: cookieFrom(res), userId: body.user.id };
-  }
-
   beforeAll(async () => {
-    app = await bootTestApp();
-
     // 1. Owner : signup -> crée l'org (devient owner, activeOrganizationId posé en session).
     const owner = await signup("owner");
     ownerCookie = owner.cookie;
@@ -93,10 +102,6 @@ describe("RBAC owner/member + égalité des espaces d'id org (FOUND-03 / T-1-02 
       headers: { "content-type": "application/json", cookie: memberCookie },
       body: JSON.stringify({ organizationId: orgId }),
     });
-  });
-
-  afterAll(async () => {
-    await app?.stop();
   });
 
   it("owner -> POST /settings = 200 (action owner-only autorisée)", async () => {
@@ -161,7 +166,7 @@ describe("RBAC owner/member + égalité des espaces d'id org (FOUND-03 / T-1-02 
   });
 });
 
-// ─── API-06 : viewer role (RED — RolesGuard implemented in plan 05-05) ────────
+// ─── Suite 2 : API-06 viewer role (plan 05-05 GREEN) ────────────────────────
 //
 // Prouve :
 //  - session viewer -> GET /api/deals -> 200 (lecture autorisée)
@@ -169,32 +174,14 @@ describe("RBAC owner/member + égalité des espaces d'id org (FOUND-03 / T-1-02 
 //  - session viewer -> PATCH /api/deals/:id -> 403
 //  - session member -> POST /api/deals -> 201 (member peut écrire, pas bloqué)
 
-describe("RBAC viewer (API-06 : lecture seule via RolesGuard — RED)", () => {
-  let app: Awaited<ReturnType<typeof bootTestApp>>;
+describe("RBAC viewer (API-06 : lecture seule via RolesGuard)", () => {
   let ownerCookie: string;
   let memberCookie: string;
   let viewerCookie: string;
   let orgId: string;
   let contactId: string;
 
-  async function signup(label: string): Promise<{ cookie: string; userId: string }> {
-    const res = await fetch(`${app.baseUrl}${SIGNUP}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email: `${label}+${Date.now()}-${Math.random().toString(36).slice(2)}@kessel.test`,
-        password: "Sup3r-Secret-Pw!",
-        name: label,
-      }),
-    });
-    expect([200, 201]).toContain(res.status);
-    const body = (await res.json()) as { user: { id: string } };
-    return { cookie: cookieFrom(res), userId: body.user.id };
-  }
-
   beforeAll(async () => {
-    app = await bootTestApp();
-
     // Owner : crée l'org
     const owner = await signup("viewer-owner");
     ownerCookie = owner.cookie;
@@ -226,21 +213,20 @@ describe("RBAC viewer (API-06 : lecture seule via RolesGuard — RED)", () => {
     });
 
     // Viewer : signup + addMember(role:"viewer")
-    // Open Question 3 (05-RESEARCH) : Better Auth 1.6.18 peut rejeter role:'viewer'.
-    // Fallback : basePrisma.$executeRaw si addMember échoue.
+    // Open Question 3 résolu (plan 05-05) : Better Auth 1.6.18 accepte les rôles custom comme
+    // string libre (le type TS restreint à owner/admin/member mais le runtime est permissif).
+    // Fallback SQL si Better Auth rejette à l'exécution (Pitfall 6 — 05-RESEARCH).
     const viewer = await signup("viewer-user");
     viewerCookie = viewer.cookie;
     try {
       await app.auth.api.addMember({
         // Cast: BA types restrict role to owner/admin/member — 'viewer' is a custom extension.
-        // If BA rejects at runtime, the catch block falls back to raw SQL (Open Question 3).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         body: { userId: viewer.userId, organizationId: orgId, role: "viewer" as any },
         headers: new Headers({ cookie: ownerCookie }),
       });
     } catch {
-      // Fallback SQL direct si Better Auth rejette 'viewer' comme valeur custom
-      // (comportement non vérifié en BA 1.6.18 — Open Question 3 / Pitfall 6).
+      // Fallback SQL direct si Better Auth rejette 'viewer' comme valeur custom.
       await app.basePrisma.$executeRaw`
         INSERT INTO "member" ("id", "organizationId", "userId", "role", "createdAt")
         VALUES (
@@ -267,10 +253,6 @@ describe("RBAC viewer (API-06 : lecture seule via RolesGuard — RED)", () => {
     });
     const contact = (await contactRes.json()) as { id: string };
     contactId = contact.id;
-  });
-
-  afterAll(async () => {
-    await app?.stop();
   });
 
   it("viewer cookie -> GET /api/deals -> 200 (read allowed)", async () => {
