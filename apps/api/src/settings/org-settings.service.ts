@@ -4,12 +4,14 @@ import { checkVAT, countries } from "jsvat-next";
 import { forOrg } from "@kessel/db";
 import type { UpdateOrgSettingsDto } from "./dto/update-org-settings.dto";
 
-// Champs TVA + locale exposés par GET /api/orgs/me/settings.
+// Champs TVA + locale + branding exposés par GET /api/orgs/me/settings.
 export interface OrgSettingsDto {
   vatRegime: string | null;
   vatNumber: string | null;
   country: string | null;
   defaultLocale: string | null;
+  logo: string | null;
+  brandColor: string | null;
 }
 
 @Injectable()
@@ -17,17 +19,20 @@ export class OrgSettingsService {
   // @Inject explicite : esbuild (build + vitest) n'émet pas design:paramtypes -> token DI requis.
   constructor(@Inject(I18nService) private readonly i18n: I18nService) {}
 
-  // Lecture des settings TVA/locale de l'org — accessible à tous les membres (pas owner-only).
+  // Lecture des settings TVA/locale/branding de l'org — accessible à tous les membres (pas owner-only).
   async getOrgSettings(orgId: string): Promise<OrgSettingsDto> {
     const org = await forOrg(orgId).organization.findUnique({
       where: { id: orgId },
-      select: { vatRegime: true, vatNumber: true, country: true, defaultLocale: true },
+      select: { vatRegime: true, vatNumber: true, country: true, defaultLocale: true, logo: true, brandColor: true },
     });
+    const o = org as OrgSettingsDto | null;
     return {
-      vatRegime: (org as OrgSettingsDto | null)?.vatRegime ?? null,
-      vatNumber: (org as OrgSettingsDto | null)?.vatNumber ?? null,
-      country: (org as OrgSettingsDto | null)?.country ?? null,
-      defaultLocale: (org as OrgSettingsDto | null)?.defaultLocale ?? null,
+      vatRegime: o?.vatRegime ?? null,
+      vatNumber: o?.vatNumber ?? null,
+      country: o?.country ?? null,
+      defaultLocale: o?.defaultLocale ?? null,
+      logo: o?.logo ?? null,
+      brandColor: o?.brandColor ?? null,
     };
   }
 
@@ -44,12 +49,24 @@ export class OrgSettingsService {
       }
     }
 
+    // Validation brandColor : format hex #RRGGBB obligatoire (T-8-css anti CSS injection).
+    if (dto.brandColor !== undefined && dto.brandColor !== "") {
+      if (!/^#[0-9a-fA-F]{6}$/.test(dto.brandColor)) {
+        const msg = this.i18n.translate("common.errors.brand_color_invalid", {
+          lang: I18nContext.current()?.lang ?? "fr",
+        });
+        throw new BadRequestException(msg);
+      }
+    }
+
     // Ne mettre à jour que les champs explicitement fournis dans le DTO (mise à jour partielle).
     const data: Record<string, unknown> = {};
     if (dto.vatRegime !== undefined) data["vatRegime"] = dto.vatRegime;
     if (dto.vatNumber !== undefined) data["vatNumber"] = dto.vatNumber;
     if (dto.country !== undefined) data["country"] = dto.country;
     if (dto.defaultLocale !== undefined) data["defaultLocale"] = dto.defaultLocale;
+    if (dto.logo !== undefined) data["logo"] = dto.logo;
+    if (dto.brandColor !== undefined) data["brandColor"] = dto.brandColor;
 
     await forOrg(orgId).organization.update({
       where: { id: orgId },

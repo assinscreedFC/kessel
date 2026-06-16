@@ -7,12 +7,14 @@
     "IS_NUMBER": "{{property}} must be a number",
     "MIN": "{{property}} must be at least {{constraints.0}}",
     "IS_ENUM": "{{property}} must be one of the following values: {{constraints.0}}",
-    "IS_OBJECT": "{{property}} must be an object"
+    "IS_OBJECT": "{{property}} must be an object",
+    "IS_URL": "{{property}} must be a valid URL"
   },
   "errors": {
     "not_found": "Resource not found",
     "forbidden": "Access denied",
     "unauthorized": "Not authenticated",
-    "vat_number_invalid": "Invalid VAT number for this country"
+    "vat_number_invalid": "Invalid VAT number for this country",
+    "brand_color_invalid": "brandColor must be a valid hex color code (#RRGGBB)"
   }
 }

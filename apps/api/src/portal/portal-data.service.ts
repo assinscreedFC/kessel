@@ -5,6 +5,7 @@ import type { PortalProposalDto } from "./dto/portal-proposals.dto";
 import type { PortalProjectDto, PortalTaskDto } from "./dto/portal-project.dto";
 import type { PortalPaymentDto } from "./dto/portal-payments.dto";
 import type { PortalFileDto } from "./dto/portal-files.dto";
+import type { OrgBrandingDto } from "./dto/portal-branding.dto";
 
 // PortalDataService — agrégation cross-domaine pour le portail client (FOUND-05).
 //
@@ -116,6 +117,21 @@ export class PortalDataService {
         presignedUrl: await this.storage.presignedGetObject(row.objectKey),
       })),
     );
+  }
+
+  // PORT-07 : branding de l'org (logo + brandColor) — scopé par orgId du JWT portail (T-8-brand-iso).
+  // Kysely direct sur `organization` (pas SCOPED_MODELS — lecture publique cross-JWT, orgId = source d'autorité JWT).
+  async getBranding(orgId: string): Promise<OrgBrandingDto> {
+    const org = await db
+      .selectFrom("organization")
+      .where("id", "=", orgId)
+      .select(["name", "logo", "brandColor"])
+      .executeTakeFirst();
+    return {
+      orgName: org?.name ?? "",
+      logo: (org?.logo as string | null) ?? null,
+      brandColor: (org?.brandColor as string | null) ?? null,
+    };
   }
 
   // Méthode privée partagée : résoudre le projet le plus récent d'un contact dans un org.

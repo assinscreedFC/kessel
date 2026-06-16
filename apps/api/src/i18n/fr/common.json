@@ -7,12 +7,14 @@
     "IS_NUMBER": "{{property}} doit être un nombre",
     "MIN": "{{property}} doit être au minimum {{constraints.0}}",
     "IS_ENUM": "{{property}} doit être l'une des valeurs: {{constraints.0}}",
-    "IS_OBJECT": "{{property}} doit être un objet"
+    "IS_OBJECT": "{{property}} doit être un objet",
+    "IS_URL": "{{property}} doit être une URL valide"
   },
   "errors": {
     "not_found": "Ressource introuvable",
     "forbidden": "Accès refusé",
     "unauthorized": "Non authentifié",
-    "vat_number_invalid": "Numéro de TVA invalide pour ce pays"
+    "vat_number_invalid": "Numéro de TVA invalide pour ce pays",
+    "brand_color_invalid": "brandColor doit être un code hexadécimal valide (#RRGGBB)"
   }
 }

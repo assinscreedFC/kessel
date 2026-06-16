@@ -46,4 +46,12 @@ export class PortalController {
     const { contactId, orgId } = req.portalContact;
     return this.data.listFiles(contactId, orgId);
   }
+
+  // PORT-07 : branding de l'org (logo + brandColor) — orgId résolu depuis JWT portail (T-8-brand-iso).
+  // UNIQUEMENT @Get — aucun @Post/@Patch/@Delete (T-4-write).
+  @Get("branding")
+  branding(@Req() req: { portalContact: PortalContact }) {
+    const { orgId } = req.portalContact;
+    return this.data.getBranding(orgId);
+  }
 }
