@@ -1,1 +1,32 @@
-{}
+{
+  "portal": {
+    "dashboard": {
+      "title": "Your client portal"
+    },
+    "proposals": {
+      "title": "My proposals",
+      "empty": "No proposals yet."
+    },
+    "project": {
+      "title": "My project",
+      "empty": "Your project is not available yet.",
+      "tasks_empty": "No tasks for this project."
+    },
+    "payments": {
+      "title": "Payments",
+      "empty": "No payments recorded."
+    },
+    "footer": "Powered by Kessel",
+    "magic_link": {
+      "loading_label": "Verifying…"
+    },
+    "error_401": {
+      "title": "Link unavailable",
+      "body": "This link is no longer valid or has expired. Contact your representative to get a new link."
+    },
+    "lang_toggle": {
+      "fr": "FR",
+      "en": "EN"
+    }
+  }
+}

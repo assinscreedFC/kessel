@@ -1,1 +1,32 @@
-{}
+{
+  "portal": {
+    "dashboard": {
+      "title": "Votre espace client"
+    },
+    "proposals": {
+      "title": "Mes propositions",
+      "empty": "Aucune proposition pour le moment."
+    },
+    "project": {
+      "title": "Mon projet",
+      "empty": "Votre projet n'est pas encore disponible.",
+      "tasks_empty": "Aucune tâche pour ce projet."
+    },
+    "payments": {
+      "title": "Paiements",
+      "empty": "Aucun paiement enregistré."
+    },
+    "footer": "Propulsé par Kessel",
+    "magic_link": {
+      "loading_label": "Vérification en cours…"
+    },
+    "error_401": {
+      "title": "Lien indisponible",
+      "body": "Ce lien n'est plus valide ou a expiré. Contactez votre interlocuteur pour obtenir un nouveau lien."
+    },
+    "lang_toggle": {
+      "fr": "FR",
+      "en": "EN"
+    }
+  }
+}
