@@ -41,9 +41,16 @@ const SCOPED_MODELS = new Set<string>([
   "Payment",
   "ApiKey",
   "WebhookEndpoint",
+  // v1.1 CRM-05 — ClientOrg a une colonne orgId directe -> dans SCOPED_MODELS (isolation cross-tenant obligatoire)
+  "ClientOrg",
   // Task, WebhookDelivery, PortalSession sont VOLONTAIREMENT ABSENTS de ce Set :
   // ces modèles n'ont PAS de colonne orgId (scopés via leur parent orgId-scopé, pattern QuoteLine v1.0).
   // Les ajouter ici injecterait un orgId inexistant et casserait les requêtes (Pitfall 1, RESEARCH.md).
+  //
+  // DealActivity est VOLONTAIREMENT ABSENT (Pitfall 1, RESEARCH.md Phase 6) : il n'a PAS de colonne
+  // orgId — scopé via dealId -> Deal.orgId. L'y ajouter injecterait un orgId inexistant sur la table
+  // et casserait les requêtes (ex. withOrgData injecterait orgId dans le CREATE alors que la colonne
+  // n'existe pas). L'isolation est prouvée via l'inaccessibilité du parent Deal (IDOR guard obligatoire).
 ]);
 
 // Opérations dont le filtrage passe par `where` (lecture / mise à jour / suppression / agrégats).
