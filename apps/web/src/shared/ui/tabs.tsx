@@ -39,3 +39,16 @@ export const TabsTrigger = React.forwardRef<
     />
   );
 });
+
+export const TabsContent = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+>(function TabsContent({ className, ...props }, ref) {
+  return (
+    <TabsPrimitive.Content
+      ref={ref}
+      className={cn("mt-6 focus-visible:outline-none", className)}
+      {...props}
+    />
+  );
+});

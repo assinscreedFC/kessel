@@ -13,6 +13,7 @@ import { PublicProposalPage } from "@/pages/public-proposal/ui/public-proposal-p
 import { PublicPaymentPage } from "@/pages/public-payment/ui/public-payment-page";
 import { ProjectsPage } from "@/pages/projects/ui/projects-page";
 import { ProjectDetailPage } from "@/pages/project-detail/ui/project-detail-page";
+import { SettingsApiPage } from "@/pages/settings-api/ui/settings-api-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -39,6 +40,7 @@ export function App() {
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:id" element={<ProjectDetailPage />} />
+            <Route path="/settings/api" element={<SettingsApiPage />} />
           </Route>
           {/* Éditeur pleine largeur (échappe au cap max-w-6xl) : proposition + template. */}
           <Route element={<WideAppShell />}>

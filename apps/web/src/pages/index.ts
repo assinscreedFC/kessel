@@ -1,3 +1,3 @@
-// Couche FSD `pages` — frontière posée, vide en Phase 1 (scaffold seulement, aucune feature
-// métier). Les slices (pages/<slice>) sont ajoutés aux phases suivantes (CRM, propositions, ...).
-export {};
+// Couche FSD `pages` — barrel des pages de l'application.
+// Chaque slice (pages/<slice>) est exporté ici au fil des phases.
+export { SettingsApiPage } from "./settings-api/ui/settings-api-page";
