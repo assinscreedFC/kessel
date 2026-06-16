@@ -68,6 +68,9 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
   // déterministe (jamais un vrai secret ; CLAUDE.md security) — distinct de BETTER_AUTH_SECRET.
   process.env.PORTAL_JWT_SECRET = process.env.PORTAL_JWT_SECRET ?? "test-portal-secret-32chars-minimum-ok";
   process.env.PORTAL_APP_URL = process.env.PORTAL_APP_URL ?? "http://localhost:5174";
+  // WEBHOOK_ENCRYPTION_KEY requis au boot (env.validation, T-5-02). Clé de test déterministe
+  // (64 hex chars = 32 bytes 'aa...') — jamais une vraie clé ; uniquement pour les e2e.
+  process.env.WEBHOOK_ENCRYPTION_KEY = process.env.WEBHOOK_ENCRYPTION_KEY ?? "a".repeat(64);
   // baseURL trusted par Better Auth pour les cookies/CSRF en test.
   process.env.BETTER_AUTH_URL = "http://localhost";
   // Cert de signature PAdES (DELIV-03) : généré une fois en tmpdir, réutilisé (idempotent).

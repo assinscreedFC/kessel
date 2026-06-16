@@ -16,4 +16,9 @@ export const envValidationSchema = Joi.object({
     "string.min": "PORTAL_JWT_SECRET must be at least 32 characters",
   }),
   PORTAL_APP_URL: Joi.string().uri().default("http://localhost:5174"),
+  WEBHOOK_ENCRYPTION_KEY: Joi.string().length(64).required().messages({
+    "any.required": "WEBHOOK_ENCRYPTION_KEY is required — 64 hex chars (32 bytes)",
+    "string.length": "WEBHOOK_ENCRYPTION_KEY must be exactly 64 hex characters",
+  }),
+  API_RATE_LIMIT_PER_MIN: Joi.number().integer().min(1).default(100),
 }).unknown(true);

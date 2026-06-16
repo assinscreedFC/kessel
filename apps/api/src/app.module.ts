@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { AuthModule } from "@thallesp/nestjs-better-auth";
 import { auth } from "@kessel/auth";
 import { envValidationSchema } from "./config/env.validation";
@@ -37,6 +38,9 @@ import { PortalController } from "./portal/portal.controller";
 import { PortalAuthService } from "./portal/portal-auth.service";
 import { PortalDataService } from "./portal/portal-data.service";
 import { ClientPortalGuard } from "./portal/guards/client-portal.guard";
+import { V1Module } from "./v1/v1.module";
+import { WebhooksOutboundModule } from "./webhooks/webhooks-outbound.module";
+import { RbacModule } from "./rbac/rbac.module";
 
 // App shell NestJS (FOUND-02/03). AuthModule.forRoot monte l'instance Better Auth (source
 // canonique org) + installe un AuthGuard GLOBAL : toutes les routes sont protégées par défaut.
@@ -60,7 +64,11 @@ import { ClientPortalGuard } from "./portal/guards/client-portal.guard";
     }),
     AuthModule.forRoot({ auth }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
+    EventEmitterModule.forRoot({ wildcard: false, delimiter: ".", verboseMemoryLeak: false, ignoreErrors: false }),
     i18nModuleConfig,
+    V1Module,
+    WebhooksOutboundModule,
+    RbacModule,
   ],
   controllers: [
     HealthController,
