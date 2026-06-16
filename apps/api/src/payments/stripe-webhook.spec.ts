@@ -314,12 +314,13 @@ describe("e2e POST /api/webhooks/stripe (PAY-03/04/05 / T-3-sig / T-3-replay / T
     const depositAmountCents = 30000;
     await seedDepositPayment(cookie, dealId, piId, orgId, projectId, depositAmountCents);
 
-    // Stocker le grand total dans le budgetSnapshot du Project (Plan 02 le persiste)
-    // Pour le test : mettre à jour le budgetSnapshot avec un totalCents connu.
+    // Stocker le grand total dans le budgetSnapshot du Project (Plan 02 le persiste).
+    // Contrat réel BudgetSnapshot : total est une string EUR (decimal toFixed(2)), PAS totalCents.
+    // Le service convertit via toCents() — ce seed exerce le vrai contrat (anti faux-positif).
     await app.basePrisma.project.update({
       where: { id: projectId },
       data: {
-        budgetSnapshot: { totalCents: 100000, currency: "EUR" },
+        budgetSnapshot: { total: "1000.00", currency: "EUR", signedAt: new Date().toISOString(), lines: [] },
       },
     });
 

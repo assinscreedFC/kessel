@@ -283,8 +283,9 @@ export class PaymentService {
           .select("budgetSnapshot")
           .executeTakeFirst();
 
-        const snapshot = project?.budgetSnapshot as { totalCents?: number } | null | undefined;
-        const totalCents = snapshot?.totalCents ?? 0;
+        // BudgetSnapshot.total est une string EUR (decimal toFixed(2)) — convertir en centimes (T-3-amount).
+        const snapshot = project?.budgetSnapshot as { total?: string } | null | undefined;
+        const totalCents = snapshot?.total ? toCents(snapshot.total) : 0;
         const balanceCents = totalCents - payment.amountCents;
 
         if (balanceCents > 0) {
