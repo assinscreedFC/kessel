@@ -167,4 +167,161 @@ describe("e2e /api/deals (CRM-02/03 : filtre statut, IDOR, DTO, amount string �
     const res = await fetch(`${app.baseUrl}/api/deals?status=INVALID`, { headers: { cookie: cookieA } });
     expect(res.status).toBe(400);
   });
+
+  // =========================================================================
+  // CRM-04 : Pipeline kanban — PATCH /api/deals/:id/move { status, position }
+  // RED : ces tests DOIVENT ÉCHOUER car l'endpoint n'est pas encore implémenté (Wave 0).
+  // =========================================================================
+
+  it("CRM-04 : PATCH /api/deals/:id/move { status, position } -> 200, change status+position", async () => {
+    // Créer un deal pour org A
+    const createRes = await fetch(`${app.baseUrl}/api/deals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ title: "Deal à déplacer", contactId: contactAId, status: "LEAD" }),
+    });
+    expect(createRes.status).toBe(201);
+    const deal = (await createRes.json()) as { id: string };
+
+    // CRM-04 : déplacer vers PROPOSAL_SENT à la position 0
+    const moveRes = await fetch(`${app.baseUrl}/api/deals/${deal.id}/move`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ status: "PROPOSAL_SENT", position: 0 }),
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(moveRes.status).toBe(200);
+    const moved = (await moveRes.json()) as { status: string; position: number };
+    expect(moved.status).toBe("PROPOSAL_SENT");
+    expect(moved.position).toBe(0);
+
+    // Vérifier la persistance : GET reflète le changement
+    const listRes = await fetch(`${app.baseUrl}/api/deals?status=PROPOSAL_SENT`, {
+      headers: { cookie: cookieA },
+    });
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as { id: string; status: string }[];
+    expect(list.some((d) => d.id === deal.id && d.status === "PROPOSAL_SENT")).toBe(true);
+  });
+
+  it("CRM-04 IDOR : PATCH /api/deals/:id/move avec deal d'une AUTRE org -> 404, aucune écriture", async () => {
+    // Créer un deal pour org B
+    const createRes = await fetch(`${app.baseUrl}/api/deals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieB },
+      body: JSON.stringify({ title: "Deal org B", contactId: contactBId, status: "LEAD" }),
+    });
+    expect(createRes.status).toBe(201);
+    const dealB = (await createRes.json()) as { id: string };
+
+    // Org A tente de déplacer un deal org B -> 404 (IDOR)
+    const moveRes = await fetch(`${app.baseUrl}/api/deals/${dealB.id}/move`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ status: "WON", position: 0 }),
+    });
+    expect(moveRes.status).toBe(404);
+
+    // Vérifier qu'aucune écriture n'a eu lieu (le deal B doit rester LEAD)
+    const leaked = await app.basePrisma.deal.findFirst({
+      where: { id: dealB.id, status: "WON" },
+    });
+    expect(leaked).toBeNull();
+  });
+
+  // =========================================================================
+  // CRM-08 : DealActivity — POST/GET /api/deals/:id/activities
+  // RED : ces tests DOIVENT ÉCHOUER car les endpoints ne sont pas encore implémentés (Wave 0).
+  // =========================================================================
+
+  it("CRM-08 : POST /api/deals/:id/activities { type, content } -> 201", async () => {
+    // Créer un deal pour org A
+    const createRes = await fetch(`${app.baseUrl}/api/deals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ title: "Deal avec activités", contactId: contactAId, status: "LEAD" }),
+    });
+    expect(createRes.status).toBe(201);
+    const deal = (await createRes.json()) as { id: string };
+
+    // CRM-08 : ajouter une activité
+    const actRes = await fetch(`${app.baseUrl}/api/deals/${deal.id}/activities`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ type: "CALL", content: "Appel de suivi client" }),
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(actRes.status).toBe(201);
+    const activity = (await actRes.json()) as {
+      id: string;
+      dealId: string;
+      type: string;
+      content: string;
+      createdAt: string;
+    };
+    expect(activity.id).toBeTruthy();
+    expect(activity.dealId).toBe(deal.id);
+    expect(activity.type).toBe("CALL");
+    expect(activity.content).toBe("Appel de suivi client");
+  });
+
+  it("CRM-08 : GET /api/deals/:id/activities retourne la timeline desc", async () => {
+    // Créer un deal + 2 activités pour org A
+    const createRes = await fetch(`${app.baseUrl}/api/deals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ title: "Deal timeline", contactId: contactAId, status: "LEAD" }),
+    });
+    expect(createRes.status).toBe(201);
+    const deal = (await createRes.json()) as { id: string };
+
+    await fetch(`${app.baseUrl}/api/deals/${deal.id}/activities`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ type: "NOTE", content: "Note 1" }),
+    });
+    await fetch(`${app.baseUrl}/api/deals/${deal.id}/activities`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ type: "EMAIL", content: "Email envoyé" }),
+    });
+
+    const listRes = await fetch(`${app.baseUrl}/api/deals/${deal.id}/activities`, {
+      headers: { cookie: cookieA },
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as { type: string; createdAt: string }[];
+    expect(Array.isArray(list)).toBe(true);
+    expect(list.length).toBeGreaterThanOrEqual(2);
+    // Tri desc : plus récent en premier
+    if (list.length >= 2) {
+      expect(new Date(list[0].createdAt) >= new Date(list[1].createdAt)).toBe(true);
+    }
+  });
+
+  it("CRM-08 IDOR : POST /api/deals/:id/activities avec deal d'une AUTRE org -> 404 (T-6-02)", async () => {
+    // Créer un deal pour org B
+    const createRes = await fetch(`${app.baseUrl}/api/deals`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieB },
+      body: JSON.stringify({ title: "Deal org B activités", contactId: contactBId, status: "LEAD" }),
+    });
+    expect(createRes.status).toBe(201);
+    const dealB = (await createRes.json()) as { id: string };
+
+    // Org A tente de poster une activité sur un deal org B -> 404 (IDOR — ne pas confirmer l'existence)
+    const actRes = await fetch(`${app.baseUrl}/api/deals/${dealB.id}/activities`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieA },
+      body: JSON.stringify({ type: "CALL", content: "Tentative IDOR" }),
+    });
+    expect(actRes.status).toBe(404);
+
+    // Vérifier qu'aucune activité n'a été créée sur le deal B
+    const leaked = await app.basePrisma.dealActivity.count({
+      where: { dealId: dealB.id },
+    });
+    expect(leaked).toBe(0);
+  });
 });

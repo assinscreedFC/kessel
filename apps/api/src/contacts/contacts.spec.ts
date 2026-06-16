@@ -114,4 +114,176 @@ describe("e2e /api/contacts (CRM-01, real Postgres)", () => {
     const list = (await listRes.json()) as { id: string }[];
     expect(list.some((c) => c.id === created.id)).toBe(true);
   });
+
+  // =========================================================================
+  // CRM-07 : Vue 360 — GET /api/contacts/:id/overview
+  // RED : ces tests DOIVENT ÉCHOUER car l'endpoint n'est pas encore implémenté (Wave 0).
+  // =========================================================================
+
+  it("CRM-07 : GET /api/contacts/:id/overview agrège { contact, deals, proposals, projects }", async () => {
+    // Créer un contact
+    const createRes = await fetch(`${app.baseUrl}/api/contacts`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ name: "Vue360 Contact", email: "vue360@client.test" }),
+    });
+    expect(createRes.status).toBe(201);
+    const contact = (await createRes.json()) as { id: string };
+
+    // CRM-07 : GET overview
+    const overviewRes = await fetch(`${app.baseUrl}/api/contacts/${contact.id}/overview`, {
+      headers: { cookie },
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(overviewRes.status).toBe(200);
+    const overview = (await overviewRes.json()) as {
+      contact: { id: string };
+      deals: unknown[];
+      proposals: unknown[];
+      projects: unknown[];
+    };
+    expect(overview.contact.id).toBe(contact.id);
+    expect(Array.isArray(overview.deals)).toBe(true);
+    expect(Array.isArray(overview.proposals)).toBe(true);
+    expect(Array.isArray(overview.projects)).toBe(true);
+  });
+
+  it("CRM-07 IDOR : GET /api/contacts/:id/overview avec contactId d'une AUTRE org -> 404", async () => {
+    // Setup : org B avec un contact
+    const signupRes = await fetch(`${app.baseUrl}${SIGNUP}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: `crm07-idor-${Date.now()}@kessel.test`,
+        password: "Sup3r-Secret-Pw!",
+        name: "OrgB-CRM07",
+      }),
+    });
+    expect([200, 201]).toContain(signupRes.status);
+    const cookieB = cookieFrom(signupRes);
+
+    const createOrgRes = await fetch(`${app.baseUrl}${CREATE_ORG}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieB },
+      body: JSON.stringify({ name: "OrgB07", slug: `orgb07-${Date.now()}` }),
+    });
+    const orgB = (await createOrgRes.json()) as { id: string };
+    await fetch(`${app.baseUrl}${SET_ACTIVE}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieB },
+      body: JSON.stringify({ organizationId: orgB.id }),
+    });
+
+    const contactBRes = await fetch(`${app.baseUrl}/api/contacts`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieB },
+      body: JSON.stringify({ name: "OrgB Contact", email: `orgb-contact-${Date.now()}@client.test` }),
+    });
+    expect(contactBRes.status).toBe(201);
+    const contactB = (await contactBRes.json()) as { id: string };
+
+    // Org A tente d'accéder à l'overview d'un contact org B -> 404
+    const overviewRes = await fetch(`${app.baseUrl}/api/contacts/${contactB.id}/overview`, {
+      headers: { cookie },
+    });
+    expect(overviewRes.status).toBe(404);
+  });
+
+  // =========================================================================
+  // CRM-09 : Import CSV — POST /api/contacts/import
+  // RED : ces tests DOIVENT ÉCHOUER car l'endpoint n'est pas encore implémenté (Wave 0).
+  // =========================================================================
+
+  it("CRM-09 : POST /api/contacts/import CSV valide -> { imported, skipped, errors }", async () => {
+    // CSV avec 2 contacts valides (colonnes FR)
+    const csv = [
+      "nom,email,organisation",
+      "Jean Dupont,jean@import.test,Acme SA",
+      "Marie Martin,marie@import.test,Beta Corp",
+    ].join("\n");
+
+    const formData = new FormData();
+    formData.append("file", new Blob([csv], { type: "text/csv" }), "contacts.csv");
+
+    const res = await fetch(`${app.baseUrl}/api/contacts/import`, {
+      method: "POST",
+      headers: { cookie },
+      body: formData,
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as {
+      imported: number;
+      skipped: number;
+      errors: string[];
+    };
+    expect(result.imported).toBe(2);
+    expect(result.skipped).toBe(0);
+    expect(Array.isArray(result.errors)).toBe(true);
+    expect(result.errors.length).toBe(0);
+  });
+
+  it("CRM-09 : email dupliqué dans l'org -> skipped++, pas d'écrasement", async () => {
+    // Créer un contact existant avec l'email qui sera dans le CSV
+    const existingEmail = `duplicate-${Date.now()}@import.test`;
+    const createRes = await fetch(`${app.baseUrl}/api/contacts`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ name: "Existant", email: existingEmail }),
+    });
+    expect(createRes.status).toBe(201);
+
+    // CSV contenant l'email existant + 1 nouveau
+    const csv = [
+      "nom,email,organisation",
+      `Existant Copie,${existingEmail},Org Dupliqué`,
+      "Nouveau Contact,nouveau-unique@import.test,Nouvelle Org",
+    ].join("\n");
+
+    const formData = new FormData();
+    formData.append("file", new Blob([csv], { type: "text/csv" }), "contacts.csv");
+
+    const res = await fetch(`${app.baseUrl}/api/contacts/import`, {
+      method: "POST",
+      headers: { cookie },
+      body: formData,
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as {
+      imported: number;
+      skipped: number;
+      errors: string[];
+    };
+    expect(result.imported).toBe(1);
+    expect(result.skipped).toBe(1); // email existant -> skipped
+    expect(result.errors.length).toBe(0);
+  });
+
+  it("CRM-09 : organisation dans CSV -> find-or-create ClientOrg scopé org", async () => {
+    const orgName = `ImportOrg-${Date.now()}`;
+    const csv = [
+      "nom,email,organisation",
+      `Contact Org1,org1-${Date.now()}@import.test,${orgName}`,
+      `Contact Org2,org2-${Date.now()}@import.test,${orgName}`,
+    ].join("\n");
+
+    const formData = new FormData();
+    formData.append("file", new Blob([csv], { type: "text/csv" }), "contacts.csv");
+
+    const res = await fetch(`${app.baseUrl}/api/contacts/import`, {
+      method: "POST",
+      headers: { cookie },
+      body: formData,
+    });
+    // RED : 404 attendu (endpoint absent)
+    expect(res.status).toBe(200);
+    const result = (await res.json()) as { imported: number; skipped: number; errors: string[] };
+    expect(result.imported).toBe(2);
+    // Vérifier qu'une seule ClientOrg a été créée (find-or-create, pas 2 créations)
+    const clientOrgs = await app.basePrisma.clientOrg.findMany({
+      where: { name: orgName },
+    });
+    expect(clientOrgs.length).toBe(1); // find-or-create idempotent
+  });
 });
