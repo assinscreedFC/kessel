@@ -2,95 +2,174 @@
 
 # Kessel
 
-**L'OS open source des agences et freelances.** Self-hostable · IA native · EU souverain.
+**The open-source OS for agencies and freelancers.** Self-hostable · AI-native · EU-sovereign.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-![Stack](https://img.shields.io/badge/stack-NestJS_·_React_·_Postgres-informational)
-![Status](https://img.shields.io/badge/status-v1.0_shipped_·_v1.1_in_progress-success)
+![Monorepo: Nx](https://img.shields.io/badge/monorepo-Nx-143055)
+![Backend: NestJS](https://img.shields.io/badge/backend-NestJS-e0234e)
+![Frontend: React](https://img.shields.io/badge/frontend-React_19-61dafb)
+![Database: Postgres](https://img.shields.io/badge/database-Postgres-336791)
+![Status: v1.0 shipped · v1.1 planning](https://img.shields.io/badge/status-v1.0_shipped_·_v1.1_planning-success)
 
 </div>
 
 ---
 
-Kessel ferme la **boucle client complète** — prospect → brief → proposition (avec e-sign) → projet → temps → facture → portail client — là où les outils US (HoneyBook, Bonsai, Productive) sont fragmentés, chers et non conformes UE.
+## Overview
 
-Le wedge d'entrée est le **moteur de propositions IA** : transformer un brief client brut en **proposition + devis chiffré prêt à signer**, calibré sur vos propositions gagnées passées (IA flywheel, pas un wrapper GPT). Puis on étend module par module vers la boucle complète.
+Kessel closes the **full client loop** for agencies and freelancers — prospect → brief → proposal (with e-sign) → project → time → invoice → client portal — where US-centric tools (HoneyBook, Bonsai, Productive) are fragmented, expensive, and not EU-compliant.
 
-## Pourquoi
+The entry wedge is the **AI proposal engine**: turn a raw client brief into a **proposal plus a priced, ready-to-sign quote**, calibrated on your past won proposals (an AI flywheel, not a GPT wrapper). From that foundation, Kessel expands one module at a time toward the complete loop.
 
-- **Fin de la fragmentation** — une boucle reliée, pas un n-ième outil isolé parmi 6 à 8 déconnectés.
-- **EU souverain** — TVA UE, régime auto-entrepreneur FR, SEPA, RGPD, données chez vous, Factur-X (à venir). Aucun incumbent US ne le tient.
-- **IA flywheel** — le devis apprend de vos propositions gagnées/perdues, par type de client, prix, formulation.
-- **Open source, self-hostable** — AGPL-3.0, un `docker compose up`, vos données restent chez vous.
+It is a modular monolith, full-stack TypeScript, designed to run with a single `docker compose up` so your data stays on your own infrastructure.
 
-## État du projet
+## Features
 
-| Milestone | Périmètre | Statut |
-|-----------|-----------|--------|
-| **v1.0 — Moteur de propositions IA** | CRM minimal, éditeur Tiptap + tarifs, devis chiffré, génération IA calibrée, export PDF, lien client public + e-sign PAdES, flywheel gagné/perdu | ✅ Livré |
-| **v1.1 — Portail client + boucle de base** | Portail client unifié, paiement Stripe + SEPA, conversion proposition → projet, CRM complet, API publique + webhooks, multilingue + TVA UE | 🚧 En cours |
+### Shipped (v1.0 — AI proposal engine)
 
-Suite (v2) : suivi du temps, facture depuis le temps, Factur-X + hand-off Chorus Pro/PDP, dashboards rentabilité, couche MCP.
+- **Minimal CRM** — contacts, deals, and deal status with a filterable list.
+- **Proposal & pricing editor** — Tiptap rich-text editor, reusable templates, a pricing grid, and a snapshotted priced quote.
+- **AI proposal generation** — brief → priced quote via Claude (`@anthropic-ai/sdk`, strict tool use), calibrated on the won/lost flywheel. Degrades gracefully (503) when no Anthropic key is configured.
+- **PDF export** — server-side rendering of the proposal (Puppeteer/Chromium).
+- **Public client link + e-sign** — shareable public proposal page, view tracking, and PAdES signature (pdf-lib + PKCS#12, Documenso-style). Signing moves the deal to WON.
+- **Flywheel data loop** — won/lost outcomes are recorded into a dataset that feeds back into AI generation.
+- **Multi-tenant foundation** — Better Auth organizations, row-level `orgId` scoping at the ORM, RBAC, and cross-org negative tests throughout.
 
-## Stack
+### Planned / WIP (v1.1 — client portal + base loop)
 
-Modular monolith (monorepo Nx), full-stack TypeScript.
+These domains have their module boundaries in place (`@kessel/projects`, `@kessel/portal`, `@kessel/invoicing`, `@kessel/timetrack` are intentional boundary stubs today) but **no feature implementation yet**. Roadmap, requirements, and success criteria are written; phase planning is the next step.
 
-- **Backend** : NestJS + TypeScript
-- **Frontend** : React/Vite + Feature-Sliced Design + shadcn/ui
-- **ORM** : Prisma (migrations) + Kysely (requêtes typées) · Postgres (champs custom JSONB + GIN)
-- **Auth / multi-tenant** : Better Auth (org `org_id`, isolation row-level à l'ORM)
-- **e-sign** : pattern Documenso (pdf-lib + PKCS#12 + PAdES)
-- **IA** : `@anthropic-ai/sdk` (tool use strict, flywheel sur le gagné/perdu)
-- **Self-host** : Docker Compose (api + web + postgres + redis + minio + caddy)
+- **Project module** — convert a signed proposal into a project with a frozen budget snapshot and tasks derived from quote lines.
+- **Stripe payments** — embedded Payment Element, deposit on signature, verified HMAC webhooks, idempotent updates.
+- **Client portal** — third Vite app, magic-link JWT (`role:client`), proposals/payments/project status.
+- **Public API + outgoing webhooks** — `ksl_live_` API keys, `/api/v1/`, HMAC-SHA256 webhooks.
+- **Full CRM** — kanban pipeline, client org, 360 view, activity log, CSV import.
+- **EU VAT + i18n** — per-line VAT, legal mentions, FR/EN switch for dashboard and portal.
+- **SEPA + portal files + branding** — SEPA SetupIntent, MinIO upload/download, per-org branding.
 
-## Démarrage rapide
+> Later milestones (v2) target time tracking, invoicing from time, Factur-X + Chorus Pro/PDP hand-off, profitability dashboards, and an MCP layer.
 
-> Prérequis : Docker + Docker Compose.
+## Tech Stack
+
+Modular monolith in an **Nx monorepo**, full-stack TypeScript, with strict module boundaries (`@nx/enforce-module-boundaries`): a domain package never imports another, and cross-domain orchestration lives in `apps/api`.
+
+| Layer | Technology |
+|-------|-----------|
+| Monorepo | Nx 22, pnpm 10 |
+| Backend | NestJS 11 + TypeScript |
+| Frontend | React 19 / Vite + Feature-Sliced Design + shadcn/ui + TanStack Query |
+| Database | PostgreSQL (custom fields via JSONB + GIN) |
+| ORM | Prisma (migrations) + Kysely (typed queries) |
+| Auth / multi-tenant | Better Auth (org `orgId`, row-level isolation at the ORM) |
+| Editor | Tiptap |
+| AI | `@anthropic-ai/sdk` (Claude, strict tool use, won/lost flywheel) |
+| E-sign | pdf-lib + PKCS#12 + PAdES (Documenso pattern) |
+| PDF | Puppeteer / Chromium |
+| Storage | MinIO (S3-compatible) |
+| Testing | Vitest + Testcontainers (real Postgres) |
+| Self-host | Docker Compose (api + web + postgres + redis + minio + caddy) |
+
+## Getting Started
+
+### Self-host with Docker (quickest)
+
+> Prerequisites: Docker + Docker Compose.
 
 ```bash
 git clone https://github.com/assinscreedFC/kessel.git
 cd kessel
-cp .env.example .env          # renseigner les secrets (DB, Better Auth, Anthropic…)
+cp .env.example .env          # fill in secrets (DB, Better Auth, Anthropic, MinIO…)
 docker compose up
 ```
 
-L'API répond sur `/api/health`, le dashboard est servi via Caddy.
+The API responds on `/api/health`; the dashboard is served through Caddy.
 
-### Développement local
+### Local development
 
-> Prérequis : Node 20+, pnpm 10.
+> Prerequisites: Node 20+, pnpm 10, and a running PostgreSQL instance (the compose file provides one).
 
 ```bash
 pnpm install
-pnpm nx run-many -t build      # build tous les packages
-pnpm nx run-many -t test       # suite de tests (Postgres réel via Testcontainers)
-pnpm nx serve web              # dashboard en dev
+pnpm prisma migrate dev               # apply migrations (schema in packages/shared/db)
+pnpm nx run-many -t build             # build all packages
+pnpm nx serve web                     # run the dashboard in dev
 ```
 
-## Architecture
+Run the test suite (spins up a real Postgres via Testcontainers):
 
-Modular monolith à frontières strictes (`@nx/enforce-module-boundaries`) : un module de domaine n'en importe jamais un autre, l'orchestration cross-domaine vit dans `apps/api`.
-
-```
-packages/
-  crm/         contacts, deals, pipeline
-  proposals/   devis, templates, PDF, e-sign, paiement
-  ai/          génération IA + flywheel
-  auth/, db/, shared/
-apps/
-  api/         NestJS (orchestration, controllers)
-  web/         dashboard React/Vite
-  portal/      portail client (à venir, v1.1)
+```bash
+pnpm test                             # vitest run
+pnpm nx run-many -t lint              # lint all projects
 ```
 
-Multi-tenant : chaque modèle est scopé `org_id` (`forOrg(orgId)` via Prisma `$extends`, allow-list `SCOPED_MODELS`) ou scopé via son parent. Tests négatifs cross-org systématiques (anti faux-vert).
+## Environment Variables
 
-## Documents
+Copy `.env.example` to `.env` and fill in real values. Never commit secrets.
 
-- **[CAHIER-DES-CHARGES.md](CAHIER-DES-CHARGES.md)** — cadrage complet : vision, marché, slot OSS, architecture, fonctionnalités par phase, directions alternatives. Sourcé.
-- **[docs/RESEARCH-APPENDIX.md](docs/RESEARCH-APPENDIX.md)** — rapports de recherche bruts.
+| Variable | Description | Example / placeholder |
+|----------|-------------|-----------------------|
+| `POSTGRES_USER` | Postgres user | `kessel` |
+| `POSTGRES_PASSWORD` | Postgres password | `changeme-postgres` |
+| `POSTGRES_DB` | Postgres database name | `kessel` |
+| `DATABASE_URL` | Connection string used by Prisma and Better Auth | `postgresql://kessel:...@postgres:5432/kessel?schema=public` |
+| `BETTER_AUTH_SECRET` | Session/cookie signing key (`openssl rand -hex 32`) | `changeme-32-byte-hex` |
+| `BETTER_AUTH_URL` | Trusted public URL (cookies/CSRF) | `http://localhost` |
+| `PORT` | NestJS API listen port | `3000` |
+| `APP_ORIGIN` | Public origin for client-facing links | `http://localhost` |
+| `ANTHROPIC_API_KEY` | Claude API key; absent → AI generation returns 503 | `changeme-anthropic-api-key` |
+| `KESSEL_AI_MODEL` | Generation model (optional) | `claude-sonnet-4-6` |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | MinIO root credentials | `kessel` / `changeme-minio` |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | MinIO access keys used by the API | `kessel` / `changeme-minio` |
+| `MINIO_BUCKET` | Bucket for signed PDFs | `kessel-signed` |
+| `SIGNING_P12_PATH` | Path to the PKCS#12 cert (path, not a secret) | `/run/secrets/kessel-signing.p12` |
+| `SIGNING_P12_PASSPHRASE` | PKCS#12 passphrase (secret) | `changeme-p12-passphrase` |
+| `REDIS_URL` | Redis connection string | `redis://redis:6379` |
+| `PUPPETEER_SKIP_DOWNLOAD` | Skip bundled Chromium download in container | `true` |
+| `PUPPETEER_EXECUTABLE_PATH` | System Chromium path | `/usr/bin/chromium` |
 
-## Licence
+See `.env.example` for inline notes and key-generation commands.
 
-[AGPL-3.0](LICENSE). Le cœur est libre et self-hostable. Un dossier `/ee` propriétaire (à venir) couvrira les fonctionnalités entreprise (SSO, RBAC avancé, white-label). La clause réseau AGPL protège contre la copie-revente en SaaS sans contrepartie — structure business inspirée d'Odoo (community + Enterprise + intégrateur + marketplace futur).
+## Project Structure
+
+```
+kessel/
+├── apps/
+│   ├── api/         NestJS — orchestration, controllers, DTOs, e2e specs
+│   │                (contacts, deals, pricing, proposals, public link/sign, RBAC, health)
+│   └── web/         React/Vite dashboard (Feature-Sliced Design: app/pages/features/entities)
+│
+├── packages/
+│   ├── ai/          Proposal generation + flywheel (Anthropic generator + fake generator)
+│   ├── auth/        Better Auth setup + migrations
+│   ├── crm/         Contacts, deals, pipeline
+│   ├── proposals/   Quotes, templates, PDF, e-sign, money/token helpers, outcomes, delivery
+│   ├── shared/      Cross-cutting contracts, Tiptap extensions
+│   │   └── db/      Prisma schema, tenant-scoped client, isolation specs
+│   ├── invoicing/   Boundary stub (WIP)
+│   ├── portal/      Boundary stub (WIP)
+│   ├── projects/    Boundary stub (WIP)
+│   └── timetrack/   Boundary stub (WIP)
+│
+├── docs/            RESEARCH-APPENDIX.md
+├── .planning/       Roadmap, requirements, milestone state (GSD workflow)
+├── CAHIER-DES-CHARGES.md   Full product spec (vision, market, architecture, phases)
+├── docker-compose.yml · Caddyfile · nx.json · pnpm-workspace.yaml
+```
+
+Multi-tenancy: every scoped model carries `orgId` and is accessed through `forOrg(orgId)` (Prisma `$extends`, `SCOPED_MODELS` allow-list) or scoped via its parent. Cross-org negative tests are enforced to prevent false-green isolation.
+
+## Status
+
+**Honest snapshot: roughly 55% of the full product vision.** This is a working codebase, not a scaffold.
+
+- **v1.0 — AI proposal engine: shipped.** 6 phases / 25 plans completed (2026-06-13). The full prospect → AI-generated priced proposal → public link → PAdES e-sign → won/lost flywheel loop is implemented and tested (41 spec files, real-Postgres integration tests via Testcontainers).
+- **v1.1 — Client portal + base loop: planning.** Roadmap, requirements, and per-phase success criteria are written (8 phases). Implementation has not started (0/8). The `projects`, `portal`, `invoicing`, and `timetrack` packages exist only as module-boundary stubs today.
+- **v2 and beyond: not started.** Time tracking, invoicing, Factur-X / Chorus Pro, profitability dashboards, MCP layer.
+
+What works now: CRM (contacts/deals), pricing grid, Tiptap proposal/template editor with autosave, AI generation, PDF export, public proposal page with e-sign, won/lost dataset, multi-tenant auth + RBAC, Docker Compose self-host.
+
+What is WIP: everything in the v1.1 feature list above (projects, payments, client portal, public API/webhooks, full CRM, EU VAT/i18n, SEPA/files/branding).
+
+## License
+
+[AGPL-3.0](LICENSE). The core is free and self-hostable. A proprietary `/ee` directory (planned) will cover enterprise features (SSO, advanced RBAC, white-label). The AGPL network clause protects against SaaS resale without contribution — an Odoo-style structure (community + Enterprise + integrator + future marketplace).
