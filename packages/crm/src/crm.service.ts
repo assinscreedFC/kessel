@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { basePrisma, forOrg } from "@kessel/db";
+import Papa from "papaparse";
 import type {
   ActivityType,
   ClientOrgDto,
   ClientOrgInput,
   ContactDto,
   ContactInput,
+  CsvImportResultDto,
   DealActivityDto,
   DealActivityInput,
   DealDto,
@@ -98,6 +100,16 @@ function toDealDto(row: DealRow): DealDto {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+// getField : normalisation FR/EN des colonnes CSV (Pitfall 6).
+// Retourne la première valeur non vide parmi les clés fournies.
+function getField(row: Record<string, string>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const val = row[key];
+    if (val !== undefined && val.trim() !== "") return val.trim();
+  }
+  return undefined;
 }
 
 function toDealActivityDto(row: DealActivityRow): DealActivityDto {
@@ -342,5 +354,83 @@ export class CrmService {
     if (!contact) {
       throw new NotFoundException("contactId introuvable dans l'organisation.");
     }
+  }
+
+  // ── Import CSV (CRM-09) ─────────────────────────────────────────────────────
+
+  // CRM-09 : importe des contacts depuis un buffer CSV (papaparse server-side, T-6-14).
+  // Normalisation FR/EN des headers via transformHeader (Pitfall 6).
+  // Déduplication par email dans l'org : email existant → skipped (pas d'écrasement).
+  // organisation fourni → findOrCreateClientOrg(orgId, org) → clientOrgId (scopé org, T-6-15).
+  async importContacts(orgId: string, csvBuffer: Buffer): Promise<CsvImportResultDto> {
+    const parsed = Papa.parse<Record<string, string>>(csvBuffer.toString("utf-8"), {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h: string) => h.trim().toLowerCase(),
+    });
+
+    // Pré-charger les emails existants de l'org pour la déduplication (Set pour O(1) lookup).
+    const existingContacts = await forOrg(orgId).contact.findMany({
+      select: { email: true },
+    });
+    const existingEmails = new Set(
+      existingContacts.map((c) => (c as { email: string }).email.toLowerCase()),
+    );
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (let i = 0; i < parsed.data.length; i++) {
+      const row = parsed.data[i];
+      const lineNum = i + 2; // 1-indexed, +1 pour le header
+
+      // Normalisation FR/EN (Pitfall 6) : nom/name, email, organisation/organization.
+      const name = getField(row, "nom", "name");
+      const email = getField(row, "email");
+      const orgName = getField(row, "organisation", "organization");
+
+      // Validation : nom et email requis.
+      if (!name || !email) {
+        errors.push(`Ligne ${lineNum}: nom ou email manquant`);
+        continue;
+      }
+
+      // Validation format email basique.
+      if (!email.includes("@")) {
+        errors.push(`Ligne ${lineNum}: email invalide (${email})`);
+        continue;
+      }
+
+      const normalizedEmail = email.toLowerCase();
+
+      // Déduplication : email déjà présent dans l'org → skip (pas d'écrasement, CRM-09).
+      if (existingEmails.has(normalizedEmail)) {
+        skipped++;
+        continue;
+      }
+
+      // Organisation fournie → find-or-create ClientOrg scopé org (T-6-15).
+      let clientOrgId: string | null = null;
+      if (orgName) {
+        clientOrgId = await this.findOrCreateClientOrg(orgId, orgName);
+      }
+
+      // Créer le contact dans l'org.
+      await forOrg(orgId).contact.create({
+        data: {
+          name,
+          email: normalizedEmail,
+          organizationName: orgName ?? null,
+          ...(clientOrgId ? { clientOrgId } : {}),
+        } as never,
+      });
+
+      // Ajouter l'email au Set pour déduplication intra-import (même fichier CSV).
+      existingEmails.add(normalizedEmail);
+      imported++;
+    }
+
+    return { imported, skipped, errors };
   }
 }
