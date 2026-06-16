@@ -134,8 +134,10 @@ function PaymentCard({ payment, pageState, succeededHeadingRef, onSucceeded, onP
 
           <Elements stripe={stripePromise} options={{ clientSecret: payment.clientSecret }}>
             <CheckoutForm
+              clientSecret={payment.clientSecret}
               amountCents={payment.amountCents}
               currency={payment.currency}
+              orgName={payment.orgName}
               onSucceeded={onSucceeded}
               onProcessing={onProcessing}
             />
