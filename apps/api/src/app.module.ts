@@ -38,6 +38,7 @@ import { PublicPaymentsController } from "./public/public-payments.controller";
 import { PortalAuthController, PortalMeController } from "./portal/portal-auth.controller";
 import { PortalIssueController } from "./portal/portal-issue.controller";
 import { PortalController } from "./portal/portal.controller";
+import { PortalFilesController } from "./contacts/portal-files.controller";
 import { PortalAuthService } from "./portal/portal-auth.service";
 import { PortalDataService } from "./portal/portal-data.service";
 import { ClientPortalGuard } from "./portal/guards/client-portal.guard";
@@ -95,6 +96,7 @@ import { CrmOverviewService } from "./crm/crm-overview.service";
     PortalMeController,
     PortalIssueController,
     PortalController,
+    PortalFilesController,
   ],
   // PROPOSAL_GENERATOR (token DI Symbol) bindé à l'impl Anthropic en prod. En test e2e, on l'override
   // par FakeProposalGenerator (.overrideProvider) — la SEULE I/O fakée (la DB reste réelle).

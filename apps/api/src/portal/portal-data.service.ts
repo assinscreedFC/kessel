@@ -1,8 +1,10 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 import { db } from "@kessel/db";
+import { StorageService } from "@kessel/proposals";
 import type { PortalProposalDto } from "./dto/portal-proposals.dto";
 import type { PortalProjectDto, PortalTaskDto } from "./dto/portal-project.dto";
 import type { PortalPaymentDto } from "./dto/portal-payments.dto";
+import type { PortalFileDto } from "./dto/portal-files.dto";
 
 // PortalDataService — agrégation cross-domaine pour le portail client (FOUND-05).
 //
@@ -15,6 +17,9 @@ import type { PortalPaymentDto } from "./dto/portal-payments.dto";
 
 @Injectable()
 export class PortalDataService {
+  // @Inject explicite (esbuild n'émet pas design:paramtypes — CLAUDE.md pattern).
+  constructor(@Inject(StorageService) private readonly storage: StorageService) {}
+
   // PORT-02 : propositions du contact via son deal.
   // innerJoin Deal WHERE Deal.contactId = contactId AND Proposal.orgId = orgId.
   // JAMAIS de WHERE Proposal.contactId (n'existe pas — Pitfall 4).
@@ -85,6 +90,32 @@ export class PortalDataService {
       amountCents: row.amountCents,
       currency: row.currency,
     }));
+  }
+
+  // PORT-05 : fichiers portail du contact (double WHERE contactId + orgId — T-8-idor).
+  // JAMAIS forOrg ici (Pitfall 3 RESEARCH) — isolation par double WHERE Kysely uniquement.
+  // URL présignée générée pour chaque fichier (TTL 300s) — JAMAIS loggée (T-8-presign).
+  async listFiles(contactId: string, orgId: string): Promise<PortalFileDto[]> {
+    const rows = await db
+      .selectFrom("PortalFile")
+      .where("contactId", "=", contactId)
+      .where("orgId", "=", orgId)
+      .orderBy("uploadedAt", "desc")
+      .selectAll()
+      .execute();
+
+    return Promise.all(
+      rows.map(async (row) => ({
+        id: row.id,
+        contactId: row.contactId,
+        orgId: row.orgId,
+        filename: row.filename,
+        contentType: row.contentType,
+        sizeBytes: row.sizeBytes,
+        uploadedAt: row.uploadedAt instanceof Date ? row.uploadedAt.toISOString() : String(row.uploadedAt),
+        presignedUrl: await this.storage.presignedGetObject(row.objectKey),
+      })),
+    );
   }
 
   // Méthode privée partagée : résoudre le projet le plus récent d'un contact dans un org.

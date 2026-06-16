@@ -132,7 +132,8 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
   };
 
   // Stub MinIO en mémoire (putSignedPdf capture les bytes ; getSignedPdf les restitue).
-  // Identical au StorageStub de sign-proposal.spec.ts — seul MockIO est substituée, la crypto reste réelle.
+  // Identical au StorageStub de sign-proposal.spec.ts — seul MinIO est substituée, la crypto reste réelle.
+  // PORT-05/06 : putPortalFile + presignedGetObject stubs ajoutés (Phase 8 — MinIO indisponible en test).
   class StorageStub {
     readonly store = new Map<string, Buffer>();
     async onModuleInit(): Promise<void> { /* pas de MinIO en test */ }
@@ -145,6 +146,22 @@ export async function bootTestApp(opts: { disableThrottle?: boolean; stripeClien
       const buf = this.store.get(key);
       if (!buf) throw new Error(`objet absent: ${key}`);
       return buf;
+    }
+    async putPortalFile(
+      orgId: string,
+      contactId: string,
+      fileId: string,
+      filename: string,
+      data: Buffer,
+      _contentType: string,
+    ): Promise<string> {
+      const key = `portal/${orgId}/${contactId}/${fileId}-${filename}`;
+      this.store.set(key, data);
+      return key;
+    }
+    async presignedGetObject(objectKey: string, _ttlSeconds = 300): Promise<string> {
+      // Retourne une URL factice déterministe (MinIO indisponible en test). Non loggée.
+      return `http://minio.test/kessel-portal-files/${objectKey}?X-Amz-Expires=300`;
     }
   }
 
