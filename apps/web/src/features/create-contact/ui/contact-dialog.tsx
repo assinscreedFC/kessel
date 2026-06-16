@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -8,12 +8,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/shared/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/ui/select";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
 import { contactFormSchema, type Contact, type ContactFormValues } from "@/entities/contact/model";
 import { useCreateContact, useUpdateContact } from "@/entities/contact/api";
+import { useClientOrgs } from "@/entities/client-org/api";
 
 // Dialog create/edit Contact (feature `create-contact`). UN SEUL composant réutilisé pour les
 // deux modes : `contact` fourni => édition (PATCH), sinon création (POST). rhf + zodResolver
@@ -25,14 +33,16 @@ interface ContactDialogProps {
   contact?: Contact | null;
 }
 
-const EMPTY: ContactFormValues = { name: "", email: "", organizationName: "" };
+const EMPTY: ContactFormValues = { name: "", email: "", organizationName: "", clientOrgId: null };
 
 export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
   const isEdit = Boolean(contact);
+  const { data: clientOrgs } = useClientOrgs();
 
   const {
     register,
     handleSubmit,
+    control,
     reset,
     formState: { errors },
   } = useForm<ContactFormValues>({
@@ -50,6 +60,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
             name: contact.name,
             email: contact.email,
             organizationName: contact.organizationName ?? "",
+            clientOrgId: contact.clientOrgId ?? null,
           }
         : EMPTY,
     );
@@ -108,9 +119,38 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
 
           <div className="flex flex-col">
             <Label htmlFor="organizationName" className="mb-1.5">
-              Organisation
+              Organisation (nom libre)
             </Label>
             <Input id="organizationName" {...register("organizationName")} />
+          </div>
+
+          {/* CRM-06 : rattachement à une organisation cliente (Select avec options useClientOrgs) */}
+          <div className="flex flex-col">
+            <Label htmlFor="clientOrgId" className="mb-1.5">
+              Organisation cliente
+            </Label>
+            <Controller
+              name="clientOrgId"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value ?? "__none__"}
+                  onValueChange={(v) => field.onChange(v === "__none__" ? null : v)}
+                >
+                  <SelectTrigger id="clientOrgId">
+                    <SelectValue placeholder="(Aucune)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">(Aucune)</SelectItem>
+                    {(clientOrgs ?? []).map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
 
           <DialogFooter>

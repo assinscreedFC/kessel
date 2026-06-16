@@ -20,6 +20,8 @@ function toPayload(values: DealFormValues) {
     contactId: values.contactId,
     status: values.status,
     amount: values.amount ?? null,
+    // CRM-06 : clientOrgId undefined = non modifié ; null = détacher ; string = rattacher
+    ...(values.clientOrgId !== undefined ? { clientOrgId: values.clientOrgId } : {}),
   };
 }
 

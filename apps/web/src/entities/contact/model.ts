@@ -14,6 +14,8 @@ export const contactFormSchema = z.object({
   name: z.string().trim().min(1, "Le nom est requis"),
   email: z.string().trim().email("Email invalide"),
   organizationName: z.string().trim().optional(),
+  // CRM-06 : rattachement optionnel à une organisation cliente (null = détacher)
+  clientOrgId: z.string().uuid().nullable().optional(),
 });
 
 export type ContactFormValues = z.infer<typeof contactFormSchema>;

@@ -15,6 +15,8 @@ function toPayload(values: ContactFormValues) {
     name: values.name,
     email: values.email,
     organizationName: values.organizationName?.trim() ? values.organizationName.trim() : null,
+    // CRM-06 : clientOrgId undefined = non modifié ; null = détacher ; string = rattacher
+    ...(values.clientOrgId !== undefined ? { clientOrgId: values.clientOrgId } : {}),
   };
 }
 

@@ -12,12 +12,14 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { ContactDialog } from "@/features/create-contact/ui/contact-dialog";
+import { CsvImportDialog } from "@/features/csv-import/ui/csv-import-dialog";
 import { useContacts } from "@/entities/contact/api";
 import type { Contact } from "@/entities/contact/model";
 
 // Page Contacts (couche `pages`). Couvre CRM-01 côté front : table dense (02-UI-SPEC) avec ses
 // 4 états obligatoires (loading skeleton / empty+CTA / error+retry / populated) + Dialog create/edit.
 // Le clic sur une ligne ouvre le Dialog en mode édition ; le CTA en-tête en mode création.
+// CRM-09 : bouton "Importer des contacts" (variant outline) déclenche CsvImportDialog.
 
 const SKELETON_ROWS = 5;
 
@@ -25,6 +27,7 @@ export function ContactsPage() {
   const { data: contacts, isPending, isError, refetch } = useContacts();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
 
   const openCreate = () => {
     setEditing(null);
@@ -40,7 +43,12 @@ export function ContactsPage() {
     <div>
       <header className="mb-8 flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight text-slate-900">Contacts</h1>
-        <Button onClick={openCreate}>Nouveau contact</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setCsvDialogOpen(true)}>
+            Importer des contacts
+          </Button>
+          <Button onClick={openCreate}>Nouveau contact</Button>
+        </div>
       </header>
 
       <TableContainer>
@@ -79,6 +87,7 @@ export function ContactsPage() {
       </TableContainer>
 
       <ContactDialog open={dialogOpen} onOpenChange={setDialogOpen} contact={editing} />
+      <CsvImportDialog open={csvDialogOpen} onOpenChange={setCsvDialogOpen} />
     </div>
   );
 }

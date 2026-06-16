@@ -24,6 +24,8 @@ export const dealFormSchema = z.object({
   contactId: z.string().uuid("Sélectionnez un contact"),
   status: z.enum(DEAL_STATUS_VALUES as [DealStatus, ...DealStatus[]]),
   amount: optionalAmount,
+  // CRM-06 : rattachement optionnel à une organisation cliente (null = aucune)
+  clientOrgId: z.string().uuid().nullable().optional(),
 });
 
 // Le preprocess d'amount rend l'INPUT (ce que les champs rhf produisent, ex. string de l'Input number)
