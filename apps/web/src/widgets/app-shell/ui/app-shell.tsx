@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Globe, Key, LayoutTemplate, Receipt, Tag, Users } from "lucide-react";
+import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Globe, Key, LayoutTemplate, Paintbrush, Receipt, Tag, Users } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useLang } from "@/shared/lib/use-lang";
 
@@ -55,6 +55,7 @@ function Sidebar() {
         <NavItem to="/templates" icon={LayoutTemplate} label="Templates" />
         <NavItem to="/settings/api" icon={Key} label="API & Webhooks" />
         <NavItem to="/settings/vat" icon={Receipt} label="TVA & Localisation" />
+        <NavItem to="/settings/branding" icon={Paintbrush} label="Branding" />
       </nav>
       <div className="mt-auto border-t border-slate-200 px-4 py-3">
         <div className="flex items-center gap-2 text-xs text-slate-500">

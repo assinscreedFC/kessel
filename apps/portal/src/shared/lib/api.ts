@@ -44,6 +44,13 @@ export type PortalFileDto = {
   presignedUrl: string;
 };
 
+// PORT-07 : branding de l'org (logo URL + couleur primaire hex).
+export type OrgBrandingDto = {
+  orgName: string;
+  logo: string | null;
+  brandColor: string | null;
+};
+
 export type PortalMeDto = {
   contactId: string;
   orgId: string;
@@ -76,6 +83,8 @@ export const portalApi = {
   payments: () => portalFetch<PortalPaymentDto[]>("/portal/payments"),
   // PORT-05 : liste fichiers partagés avec URL présignée TTL 5 min (jamais en cache côté client).
   files: () => portalFetch<PortalFileDto[]>("/portal/files"),
+  // PORT-07 : branding de l'org (logo + brandColor) — résolu par JWT orgId (T-8-brand-iso).
+  branding: () => portalFetch<OrgBrandingDto>("/portal/branding"),
   exchange: (token: string) =>
     fetch("/portal/auth/exchange", {
       method: "POST",
