@@ -2,7 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import puppeteer, { type Browser } from "puppeteer";
 import { generateHTML } from "@tiptap/html";
 import { PROPOSAL_EXTENSIONS } from "@kessel/shared";
-import type { QuoteLineDto } from "@kessel/shared";
+import type { QuoteLineDto, VatTotalsDto } from "@kessel/shared";
 import { wrapTemplate, type PdfTemplateLine } from "./pdf-template";
 
 // PdfService — rend une proposition en PDF FIDÈLE à l'éditeur (PROP-07).
@@ -38,6 +38,7 @@ export interface RenderProposalInput {
   bodyJson: unknown;
   lines: QuoteLineDto[];
   grandTotal: string;
+  vatTotals?: VatTotalsDto; // bloc HT/TVA/TTC + mention légale (TVA-02/03/04)
   org: { name: string };
 }
 
@@ -83,6 +84,7 @@ export class PdfService implements OnModuleInit, OnModuleDestroy {
       bodyHtml,
       lines: templateLines,
       grandTotalFormatted: formatEur(input.grandTotal),
+      vatTotals: input.vatTotals,
     });
 
     const page = await this.browser.newPage();

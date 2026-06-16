@@ -1,14 +1,28 @@
 // pdf-template.ts — wrapper HTML AUTONOME (CSS inline, AUCUN fetch externe) pour l'export PDF
 // (PROP-07). Reproduit le layout 03-UI-SPEC "PDF document layout" : header (org + date fr-FR +
 // hairline), titre, corps Tiptap rendu (bodyHtml — déjà échappé par generateHTML), section DEVIS
-// (omise si 0 ligne), footer org. A4 portrait, esthétique slate/system-font de l'app.
+// (omise si 0 ligne), bloc TVA (HT/TVA par taux/TTC + mention légale), footer org.
+// A4 portrait, esthétique slate/system-font de l'app.
 //
 // SÉCURITÉ (V12 / T-3-pdf-xss) : orgName et chaque description sont des champs HORS-éditeur — ils
 // sont échappés via escapeHtml AVANT injection. bodyHtml vient de generateHTML(@tiptap/html) qui rend
 // un schéma Tiptap CONTRÔLÉ (texte des nœuds échappé, pas de <script> arbitraire) -> sûr tel quel.
+// T-7-08 : escapeHtml appliqué dans renderVatBlock (montants formatés + mention légale).
 //
 // SSRF (T-3-pdf-ssrf) : ZÉRO ressource externe (pas de <link>, <img src=http>, @import url) — le CSS
 // est inline et le HTML autonome, rendu via page.setContent(...{waitUntil:"load"}), jamais de navigation URL.
+//
+// LOCALE (Pitfall 6) : montants EUR hardcodés "fr-FR" (rendu serveur sans contexte locale utilisateur).
+
+import type { VatTotalsDto } from "@kessel/shared";
+
+// Formateur EUR fr-FR — locale hardcodée serveur (Pitfall 6 : pas de contexte locale utilisateur dans le PDF).
+const EUR_FR = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+
+function formatEurFr(amount: string): string {
+  const n = Number(amount);
+  return Number.isFinite(n) ? EUR_FR.format(n) : escapeHtml(amount);
+}
 
 // Montant déjà formaté (EUR fr-FR) par le service — le template ne refait pas le calcul/format.
 export interface PdfTemplateLine {
@@ -25,6 +39,7 @@ export interface PdfTemplateInput {
   bodyHtml: string; // sortie generateHTML — déjà sûre (schéma Tiptap contrôlé)
   lines: PdfTemplateLine[];
   grandTotalFormatted: string; // ex "37,15 €"
+  vatTotals?: VatTotalsDto;   // bloc HT/TVA/TTC + mention légale (TVA-02/03/04)
 }
 
 // Échappe les 5 caractères HTML sensibles. Appliqué à TOUT champ hors-éditeur (orgName, description,
@@ -36,6 +51,51 @@ export function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// Bloc récapitulatif HT/TVA/TTC + mention légale conditionnelle (TVA-02/03/04).
+// Locale fr-FR hardcodée (rendu serveur — Pitfall 6). escapeHtml sur tous les montants (T-7-08).
+// Mentions verbatim (source : computeVatTotals dans vat.ts) :
+//   FRANCHISE  → "Article 293B du CGI — TVA non applicable"
+//   INTRACOM   → "Autoliquidation — TVA due par le preneur"
+// Retourne "" si vatTotals absent (rétro-compat) ou si la section DEVIS est vide (0 lignes).
+function renderVatBlock(vatTotals: VatTotalsDto | undefined): string {
+  if (!vatTotals) return "";
+
+  const htFormatted = escapeHtml(formatEurFr(vatTotals.ht));
+  const ttcFormatted = escapeHtml(formatEurFr(vatTotals.ttc));
+
+  const tvaRows = vatTotals.tva
+    .map(
+      (t) =>
+        `<tr>
+          <td class="total-label" colspan="3">TVA ${escapeHtml(String(t.rate))} %</td>
+          <td class="num total-value">${escapeHtml(formatEurFr(t.amount))}</td>
+        </tr>`,
+    )
+    .join("");
+
+  const mentionHtml = vatTotals.legalMention
+    ? `<p class="legal-mention">${escapeHtml(vatTotals.legalMention)}</p>`
+    : "";
+
+  return `
+    <section class="vat-block">
+      <table>
+        <tfoot>
+          <tr>
+            <td class="total-label" colspan="3">Total HT</td>
+            <td class="num total-value">${htFormatted}</td>
+          </tr>
+          ${tvaRows}
+          <tr>
+            <td class="total-label total-ttc" colspan="3">Total TTC</td>
+            <td class="num total-value total-ttc">${ttcFormatted}</td>
+          </tr>
+        </tfoot>
+      </table>
+      ${mentionHtml}
+    </section>`;
 }
 
 function renderQuoteSection(lines: PdfTemplateLine[], grandTotalFormatted: string): string {
@@ -79,7 +139,7 @@ function renderQuoteSection(lines: PdfTemplateLine[], grandTotalFormatted: strin
 
 // Construit le document HTML complet imprimé par Puppeteer (A4, printBackground). CSS 100% inline.
 export function wrapTemplate(input: PdfTemplateInput): string {
-  const { orgName, date, title, bodyHtml, lines, grandTotalFormatted } = input;
+  const { orgName, date, title, bodyHtml, lines, grandTotalFormatted, vatTotals } = input;
   const safeOrg = escapeHtml(orgName);
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -115,6 +175,9 @@ export function wrapTemplate(input: PdfTemplateInput): string {
   td.desc, th.desc { text-align: left; }
   tfoot .total-label { text-align: right; font-weight: 600; padding: 12px 8px 0; }
   tfoot .total-value { font-weight: 700; color: #0f172a; padding: 12px 8px 0; font-size: 13px; }
+  .vat-block { margin-top: 16px; }
+  .vat-block tfoot .total-ttc { color: #0f172a; font-size: 14px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+  .legal-mention { margin-top: 10px; font-size: 10px; color: #64748b; font-style: italic; }
   .footer { margin-top: 40px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; }
 </style>
 </head>
@@ -128,6 +191,7 @@ export function wrapTemplate(input: PdfTemplateInput): string {
     <h1 class="title">${escapeHtml(title)}</h1>
     <div class="body">${bodyHtml}</div>
     ${renderQuoteSection(lines, grandTotalFormatted)}
+    ${renderVatBlock(vatTotals)}
     <div class="footer">${safeOrg}</div>
   </div>
 </body>
