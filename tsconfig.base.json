@@ -25,8 +25,7 @@
       "@kessel/timetrack": ["packages/timetrack/src/index.ts"],
       "@kessel/invoicing": ["packages/invoicing/src/index.ts"],
       "@kessel/portal": ["packages/portal/src/index.ts"],
-      "@kessel/ai": ["packages/ai/src/index.ts"],
-      "@kessel/payments": ["packages/payments/src/index.ts"]
+      "@kessel/ai": ["packages/ai/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

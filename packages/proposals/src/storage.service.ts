@@ -10,11 +10,19 @@ import * as Minio from "minio";
 // CLÉ DÉTERMINISTE (T-5-idem) : `proposals/<id>/signed.pdf` — un re-sign idempotent ÉCRASE la même
 // clé (pas d'objet orphelin par signature). Le bucket n'est PAS public (re-download médié par un
 // endpoint authentifié forOrg OU public par hash + garde status SIGNED, T-5-storage).
+//
+// PORTAIL (PORT-05/06, Phase 8) : bucket dédié `kessel-portal-files` (non public). Méthodes
+// putPortalFile + presignedGetObject. URL présignée JAMAIS loggée (T-8-presign).
 
 const BUCKET = process.env.MINIO_BUCKET ?? "kessel-signed";
+const PORTAL_BUCKET = process.env.MINIO_PORTAL_BUCKET ?? "kessel-portal-files";
 
 function signedPdfKey(proposalId: string): string {
   return `proposals/${proposalId}/signed.pdf`;
+}
+
+function portalFileKey(orgId: string, contactId: string, fileId: string, filename: string): string {
+  return `portal/${orgId}/${contactId}/${fileId}-${filename}`;
 }
 
 @Injectable()
@@ -31,25 +39,31 @@ export class StorageService implements OnModuleInit {
     });
   }
 
-  // makeBucket idempotent au boot. BucketAlreadyOwnedByYou / BucketAlreadyExists -> no-op.
+  // makeBucket idempotent au boot pour kessel-signed ET kessel-portal-files.
+  // BucketAlreadyOwnedByYou / BucketAlreadyExists -> no-op.
   //
   // TOLÉRANT AU BOOT : si MinIO est injoignable au démarrage (ECONNREFUSED en test/CI/avant que le
   // conteneur soit prêt), on NE crashe PAS l'app — le bucket sera (re)tenté implicitement au 1er put,
   // qui surfacera alors une vraie erreur de config si MinIO reste indisponible. Cela évite de coupler
   // le boot de l'API à la disponibilité de MinIO (l'API doit servir le dashboard même sans signature).
   async onModuleInit(): Promise<void> {
+    await this.ensureBucket(BUCKET);
+    await this.ensureBucket(PORTAL_BUCKET);
+  }
+
+  private async ensureBucket(bucket: string): Promise<void> {
     try {
-      const exists = await this.client.bucketExists(BUCKET);
+      const exists = await this.client.bucketExists(bucket);
       if (!exists) {
-        await this.client.makeBucket(BUCKET);
+        await this.client.makeBucket(bucket);
       }
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
       if (code === "BucketAlreadyOwnedByYou" || code === "BucketAlreadyExists") {
         return;
       }
-      // Connexion impossible au boot -> non fatal (cf. ci-dessus). Tout autre échec d'I/O réelle
-      // (auth, permissions) remontera au 1er putSignedPdf/getSignedPdf.
+      // Connexion impossible au boot -> non fatal. Tout autre échec d'I/O réelle
+      // (auth, permissions) remontera au 1er put/get.
       return;
     }
   }
@@ -71,5 +85,29 @@ export class StorageService implements OnModuleInit {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array));
     }
     return Buffer.concat(chunks);
+  }
+
+  // PORT-06 : upload d'un fichier portail vers le bucket kessel-portal-files (non public).
+  // Clé déterministe : portal/{orgId}/{contactId}/{fileId}-{filename}.
+  // Retourne la clé MinIO (stockée dans PortalFile.objectKey).
+  async putPortalFile(
+    orgId: string,
+    contactId: string,
+    fileId: string,
+    filename: string,
+    data: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const key = portalFileKey(orgId, contactId, fileId, filename);
+    await this.client.putObject(PORTAL_BUCKET, key, data, data.length, {
+      "Content-Type": contentType,
+    });
+    return key;
+  }
+
+  // PORT-05 : URL présignée pour téléchargement direct client → MinIO (TTL 300s = 5 min).
+  // T-8-presign : JAMAIS logger l'URL retournée — accès direct non authentifié borné dans le temps.
+  async presignedGetObject(objectKey: string, ttlSeconds = 300): Promise<string> {
+    return this.client.presignedGetObject(PORTAL_BUCKET, objectKey, ttlSeconds);
   }
 }
