@@ -3,6 +3,7 @@ import { api } from "@/shared/api/client";
 import { toast } from "@/shared/ui/sonner";
 import { OUTCOMES_KEY } from "@/entities/outcome/api";
 import type { Deal, DealFormValues, DealStatus } from "./model";
+import type { MoveDealInput } from "@kessel/shared";
 
 // Couche data de l'entité Deal (couche `entities`). Hooks TanStack Query consommant /api/deals via le
 // client typé (credentials:include). Le filtre statut (CRM-03) est SERVEUR : `status` entre dans la
@@ -75,5 +76,51 @@ export function useMarkDealLost(id: string, onSuccess?: () => void) {
       onSuccess?.();
     },
     onError: () => toast.error("Échec de l'enregistrement. Réessayez."),
+  });
+}
+
+// useMoveDeal — mutation optimiste pour le kanban drag-drop (CRM-04).
+// Pattern optimiste complet : onMutate cancel+snapshot+update local ; onError rollback+toast ;
+// onSettled invalidate -> refetch autorité serveur (T-6-16 réindexation synchronisée).
+// La queryKey ciblée est DEALS_KEY (["deals"]) pour couvrir toutes les vues filtrées.
+export function useMoveDeal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status, position }: { id: string } & MoveDealInput) =>
+      api.patch<Deal>(`/deals/${id}/move`, { status, position }),
+
+    onMutate: async ({ id, status, position }) => {
+      // Cancel requêtes en cours sur la queryKey deals pour éviter clobber
+      await queryClient.cancelQueries({ queryKey: DEALS_KEY });
+
+      // Snapshot de toutes les entrées cache deals (toutes queryKeys commençant par DEALS_KEY)
+      const snapshots = queryClient.getQueriesData<Deal[]>({ queryKey: DEALS_KEY });
+
+      // Update optimiste : mettre à jour le deal dans toutes les caches actives
+      queryClient.setQueriesData<Deal[]>({ queryKey: DEALS_KEY }, (old) => {
+        if (!old) return old;
+        return old.map((deal) =>
+          deal.id === id ? { ...deal, status, position } : deal,
+        );
+      });
+
+      return { snapshots };
+    },
+
+    onError: (_err, _vars, context) => {
+      // Rollback : restaurer tous les snapshots
+      if (context?.snapshots) {
+        for (const [queryKey, data] of context.snapshots) {
+          queryClient.setQueryData(queryKey, data);
+        }
+      }
+      toast.error("Impossible de déplacer le deal. Réessayez.");
+    },
+
+    onSettled: () => {
+      // Refetch autorité serveur (T-6-16)
+      queryClient.invalidateQueries({ queryKey: DEALS_KEY });
+    },
   });
 }
