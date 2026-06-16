@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { CheckCircle2, Circle } from "lucide-react";
 import { Badge } from "@/shared/ui/badge";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Separator } from "@/shared/ui/separator";
 import { portalApi, PortalUnauthorizedError } from "@/shared/lib/api";
+import { usePortalLang } from "@/shared/lib/use-portal-lang";
 import { PROPOSAL_STATUS_META } from "@/entities/proposal/status";
 import { PROJECT_STATUS_META } from "@/entities/project/status";
 import { PAYMENT_STATUS_META } from "@/entities/payment/model";
@@ -29,6 +31,9 @@ function usePortalQuery<T>(key: string, fn: () => Promise<T>) {
 }
 
 export function DashboardPage() {
+  const { t } = useTranslation();
+  const { lang, switchPortalLang } = usePortalLang();
+
   const proposalsQuery = usePortalQuery("proposals", portalApi.proposals);
   const projectQuery = usePortalQuery("project", portalApi.project);
   const paymentsQuery = usePortalQuery("payments", portalApi.payments);
@@ -39,19 +44,19 @@ export function DashboardPage() {
         {/* Header */}
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-            Votre espace client
+            {t("portal.dashboard.title")}
           </h1>
         </div>
 
         <Separator className="my-6 bg-slate-200" />
 
-        {/* Section A — Mes propositions */}
+        {/* Section A — Propositions */}
         <section aria-labelledby="section-proposals">
           <h2
             id="section-proposals"
             className="text-base font-semibold text-slate-900"
           >
-            Mes propositions
+            {t("portal.proposals.title")}
           </h2>
 
           {proposalsQuery.isLoading ? (
@@ -62,7 +67,7 @@ export function DashboardPage() {
             </div>
           ) : !proposalsQuery.data || proposalsQuery.data.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm text-slate-500">Aucune proposition pour le moment.</p>
+              <p className="text-sm text-slate-500">{t("portal.proposals.empty")}</p>
             </div>
           ) : (
             <ul className="mt-2">
@@ -89,13 +94,13 @@ export function DashboardPage() {
 
         <Separator className="my-6 bg-slate-200" />
 
-        {/* Section B — Mon projet */}
+        {/* Section B — Projet */}
         <section aria-labelledby="section-project">
           <h2
             id="section-project"
             className="text-base font-semibold text-slate-900"
           >
-            Mon projet
+            {t("portal.project.title")}
           </h2>
 
           {projectQuery.isLoading ? (
@@ -104,7 +109,7 @@ export function DashboardPage() {
             </div>
           ) : !projectQuery.data ? (
             <div className="py-8 text-center">
-              <p className="text-sm text-slate-500">Votre projet n&apos;est pas encore disponible.</p>
+              <p className="text-sm text-slate-500">{t("portal.project.empty")}</p>
             </div>
           ) : (
             <div className="mt-2 rounded-lg border border-slate-200 bg-white p-4">
@@ -128,7 +133,7 @@ export function DashboardPage() {
               <Separator className="my-3 bg-slate-200" />
 
               {projectQuery.data.tasks.length === 0 ? (
-                <p className="text-sm text-slate-500 py-4">Aucune tâche pour ce projet.</p>
+                <p className="text-sm text-slate-500 py-4">{t("portal.project.tasks_empty")}</p>
               ) : (
                 <ul>
                   {projectQuery.data.tasks.map((task) => {
@@ -167,7 +172,7 @@ export function DashboardPage() {
             id="section-payments"
             className="text-base font-semibold text-slate-900"
           >
-            Paiements
+            {t("portal.payments.title")}
           </h2>
 
           {paymentsQuery.isLoading ? (
@@ -177,7 +182,7 @@ export function DashboardPage() {
             </div>
           ) : !paymentsQuery.data || paymentsQuery.data.length === 0 ? (
             <div className="py-8 text-center">
-              <p className="text-sm text-slate-500">Aucun paiement enregistré.</p>
+              <p className="text-sm text-slate-500">{t("portal.payments.empty")}</p>
             </div>
           ) : (
             <ul className="mt-2">
@@ -212,7 +217,26 @@ export function DashboardPage() {
         </section>
 
         <footer className="mt-8 text-center text-xs text-slate-500">
-          <p>Propulsé par Kessel</p>
+          <p>{t("portal.footer")}</p>
+
+          {/* Toggle FR/EN — Surface 4 (07-UI-SPEC) */}
+          <div className="mt-4 flex justify-center gap-3 text-xs text-slate-500">
+            <button
+              aria-pressed={lang === "fr"}
+              className={`underline-offset-2 ${lang === "fr" ? "font-semibold text-slate-900 underline" : "hover:underline"}`}
+              onClick={() => switchPortalLang("fr")}
+            >
+              {t("portal.lang_toggle.fr")}
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              aria-pressed={lang === "en"}
+              className={`underline-offset-2 ${lang === "en" ? "font-semibold text-slate-900 underline" : "hover:underline"}`}
+              onClick={() => switchPortalLang("en")}
+            >
+              {t("portal.lang_toggle.en")}
+            </button>
+          </div>
         </footer>
       </main>
     </div>

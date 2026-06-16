@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { portalApi } from "@/shared/lib/api";
+import { usePortalLang } from "@/shared/lib/use-portal-lang";
 import { Error401Page } from "@/pages/error-401/ui/error-401-page";
 
 // Screen 1 — Magic-link exchange (/?token=<token>).
@@ -11,6 +13,8 @@ import { Error401Page } from "@/pages/error-401/ui/error-401-page";
 // État loading : Skeleton card animate-pulse. JAMAIS de spinner.
 export function MagicLinkPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { lang, switchPortalLang } = usePortalLang();
   const [state, setState] = useState<"loading" | "error">("loading");
 
   useEffect(() => {
@@ -47,11 +51,30 @@ export function MagicLinkPage() {
         <div
           className="rounded-lg border border-slate-200 bg-white p-6"
           role="status"
-          aria-label="Vérification en cours…"
+          aria-label={t("portal.magic_link.loading_label")}
         >
           <Skeleton className="h-5 w-40" aria-hidden="true" />
           <Skeleton className="mt-4 h-4 w-64" aria-hidden="true" />
           <Skeleton className="mt-6 h-11 w-full" aria-hidden="true" />
+        </div>
+
+        {/* Toggle FR/EN — Surface 4 (07-UI-SPEC) */}
+        <div className="mt-4 flex justify-center gap-3 text-xs text-slate-500">
+          <button
+            aria-pressed={lang === "fr"}
+            className={`underline-offset-2 ${lang === "fr" ? "font-semibold text-slate-900 underline" : "hover:underline"}`}
+            onClick={() => switchPortalLang("fr")}
+          >
+            {t("portal.lang_toggle.fr")}
+          </button>
+          <span aria-hidden="true">·</span>
+          <button
+            aria-pressed={lang === "en"}
+            className={`underline-offset-2 ${lang === "en" ? "font-semibold text-slate-900 underline" : "hover:underline"}`}
+            onClick={() => switchPortalLang("en")}
+          >
+            {t("portal.lang_toggle.en")}
+          </button>
         </div>
       </div>
     </div>
