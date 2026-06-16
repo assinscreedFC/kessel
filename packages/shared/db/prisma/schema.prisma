@@ -45,6 +45,8 @@ model Organization {
   vatNumber     String?
   country       String    @default("FR")
   defaultLocale String    @default("fr")
+  // === Branding portail (Phase 8, PORT-07) — colonne Prisma-only, Better Auth l'ignore ===
+  brandColor String? // hex validé /^#[0-9a-fA-F]{6}$/ au boundary serveur (CSS injection — Pitfall 5)
   notes     OrgNote[]
   contacts  Contact[]
   deals     Deal[]
@@ -58,6 +60,8 @@ model Organization {
   webhookEndpoints  WebhookEndpoint[]
   // v1.1 CRM-05 — organisations clientes (distinctes de l'org auth)
   clientOrgs        ClientOrg[]
+  // v1.1 Phase 8 PORT-05/06 — relation inverse PortalFile[]
+  portalFiles       PortalFile[]
 
   @@map("organization")
 }
@@ -122,6 +126,8 @@ model Contact {
   deals            Deal[]
   // v1.1 — relation inverse PortalSession[] (scopée via parent Contact)
   portalSessions   PortalSession[]
+  // v1.1 Phase 8 PORT-05/06 — relation inverse PortalFile[]
+  portalFiles      PortalFile[]
 
   @@index([orgId])
 }
@@ -538,4 +544,25 @@ model PortalSession {
   contact   Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
 
   @@index([contactId])
+}
+
+// PortalFile (Phase 8, PORT-05/06) — fichiers partagés agence -> portail client.
+// orgId direct -> DANS SCOPED_MODELS (isolation cross-tenant obligatoire).
+// contactId : scopage cross-contact côté portail (double WHERE Kysely, T-8-idor).
+// objectKey : clé MinIO portal/{orgId}/{contactId}/{uuid}-{filename} (bucket NON public).
+model PortalFile {
+  id          String   @id @default(uuid())
+  orgId       String
+  contactId   String
+  filename    String
+  objectKey   String
+  contentType String
+  sizeBytes   Int
+  uploadedAt  DateTime @default(now())
+  org         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  contact     Contact      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([contactId])
+  @@index([orgId, contactId])
 }

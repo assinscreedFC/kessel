@@ -43,6 +43,10 @@ const SCOPED_MODELS = new Set<string>([
   "WebhookEndpoint",
   // v1.1 CRM-05 — ClientOrg a une colonne orgId directe -> dans SCOPED_MODELS (isolation cross-tenant obligatoire)
   "ClientOrg",
+  // v1.1 Phase 8 PORT-05/06 — PortalFile a une colonne orgId directe -> dans SCOPED_MODELS
+  // (isolation cross-tenant obligatoire). Côté portail, l'isolation cross-contact se fait par
+  // double WHERE Kysely (contactId + orgId), PAS par forOrg (pattern portal-data.service.ts).
+  "PortalFile",
   // Task, WebhookDelivery, PortalSession sont VOLONTAIREMENT ABSENTS de ce Set :
   // ces modèles n'ont PAS de colonne orgId (scopés via leur parent orgId-scopé, pattern QuoteLine v1.0).
   // Les ajouter ici injecterait un orgId inexistant et casserait les requêtes (Pitfall 1, RESEARCH.md).
