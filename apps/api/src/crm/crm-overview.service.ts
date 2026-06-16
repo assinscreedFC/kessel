@@ -63,11 +63,14 @@ export class CrmOverviewService {
     };
 
     // Deals du contact dans l'org (double isolation contactId + orgId).
+    // orderBy createdAt desc : garantit deals[0] = deal le plus récent (l'UI 360 monte
+    // ActivityTimeline sur deals[0]?.id — sans tri, l'ordre Postgres est non déterministe).
     const dealRows = await db
       .selectFrom("Deal")
       .where("Deal.contactId", "=", contactId)
       .where("Deal.orgId", "=", orgId)
       .select(["Deal.id", "Deal.title", "Deal.status", "Deal.amount"])
+      .orderBy("Deal.createdAt", "desc")
       .execute();
 
     const deals: OverviewDealDto[] = dealRows.map((row) => ({
@@ -144,6 +147,7 @@ export class CrmOverviewService {
       .where("Deal.clientOrgId", "=", clientOrgId)
       .where("Deal.orgId", "=", orgId)
       .select(["Deal.id", "Deal.title", "Deal.status", "Deal.amount"])
+      .orderBy("Deal.createdAt", "desc")
       .execute();
 
     const deals: OverviewDealDto[] = dealRows.map((row) => ({
