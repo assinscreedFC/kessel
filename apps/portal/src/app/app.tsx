@@ -1,10 +1,10 @@
-import { useEffect } from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { isValidBrandColor, DEFAULT_BRAND_COLOR } from "@kessel/shared";
 import { MagicLinkPage } from "@/pages/magic-link/ui/magic-link-page";
 import { DashboardPage } from "@/pages/dashboard/ui/dashboard-page";
 import { Error401Page } from "@/pages/error-401/ui/error-401-page";
-import { portalApi, PortalUnauthorizedError } from "@/shared/lib/api";
+import { portalApi } from "@/shared/lib/api";
 
 // Shell portail client — QueryClient + BrowserRouter.
 // Routes : / → magic-link exchange, /dashboard → dashboard 3 sections, * → 401 uniforme.
@@ -14,26 +14,14 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 });
 
-// Regex hex locale — re-validation AVANT injection <style> (Pitfall 5 CSS injection T-8-css).
-const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
-
-// Hook branding : ne redirige PAS sur 401 (la page d'échange de token n'a pas encore de JWT).
-// Silencieux en cas d'erreur (pas de branding = fallback CSS #4F46E5).
+// Hook branding : échoue silencieusement sur 401 (pas de JWT avant l'échange de magic-link).
+// Pas de branding = fallback CSS DEFAULT_BRAND_COLOR.
 function useBranding() {
-  const navigate = useNavigate();
   const query = useQuery({
     queryKey: ["portal-branding"],
     queryFn: portalApi.branding,
     retry: false,
   });
-
-  useEffect(() => {
-    // 401 sur /portal/branding = JWT absent/expiré → rediriger vers / uniquement si pas déjà sur /.
-    if (query.error instanceof PortalUnauthorizedError) {
-      // Ne pas rediriger — le magic-link exchange se charge de l'auth initiale.
-      // Le branding échouera silencieusement jusqu'à obtention du JWT.
-    }
-  }, [query.error, navigate]);
 
   return query.data ?? null;
 }
@@ -41,9 +29,9 @@ function useBranding() {
 function BrandedShell({ children }: { children: React.ReactNode }) {
   const branding = useBranding();
 
-  // Re-validation regex côté portail avant injection <style> (Pitfall 5 T-8-css).
+  // Re-validation côté portail avant injection <style> (Pitfall 5 T-8-css).
   const safeColor =
-    branding?.brandColor && HEX_COLOR_RE.test(branding.brandColor)
+    branding?.brandColor && isValidBrandColor(branding.brandColor)
       ? branding.brandColor
       : null;
 
@@ -57,7 +45,7 @@ function BrandedShell({ children }: { children: React.ReactNode }) {
       {branding?.logo && (
         <header
           className="h-14 flex items-center px-4"
-          style={{ backgroundColor: "var(--brand-color, #4F46E5)" }}
+          style={{ backgroundColor: `var(--brand-color, ${DEFAULT_BRAND_COLOR})` }}
         >
           <img
             src={branding.logo}

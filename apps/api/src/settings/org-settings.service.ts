@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { I18nContext, I18nService } from "nestjs-i18n";
 import { checkVAT, countries } from "jsvat-next";
 import { forOrg } from "@kessel/db";
+import { isValidBrandColor } from "@kessel/shared";
 import type { UpdateOrgSettingsDto } from "./dto/update-org-settings.dto";
 
 // Champs TVA + locale + branding exposés par GET /api/orgs/me/settings.
@@ -51,7 +52,7 @@ export class OrgSettingsService {
 
     // Validation brandColor : format hex #RRGGBB obligatoire (T-8-css anti CSS injection).
     if (dto.brandColor !== undefined && dto.brandColor !== "") {
-      if (!/^#[0-9a-fA-F]{6}$/.test(dto.brandColor)) {
+      if (!isValidBrandColor(dto.brandColor)) {
         const msg = this.i18n.translate("common.errors.brand_color_invalid", {
           lang: I18nContext.current()?.lang ?? "fr",
         });

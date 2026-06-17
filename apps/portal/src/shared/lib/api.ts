@@ -2,6 +2,10 @@
 // Toutes les requêtes utilisent credentials:"include" pour envoyer le cookie portal_session.
 // Proxy /portal → localhost:3000 configuré dans apps/portal/vite.config.ts (Plan 01).
 
+// OrgBrandingDto : source de vérité unique @kessel/shared (anti-drift front/back).
+export type { OrgBrandingDto } from "@kessel/shared";
+import type { OrgBrandingDto } from "@kessel/shared";
+
 // ---- DTOs (miroir des DTOs Plan 03 côté API) ----
 
 export type PortalProposalDto = {
@@ -42,13 +46,6 @@ export type PortalFileDto = {
   sizeBytes: number;
   uploadedAt: string;
   presignedUrl: string;
-};
-
-// PORT-07 : branding de l'org (logo URL + couleur primaire hex).
-export type OrgBrandingDto = {
-  orgName: string;
-  logo: string | null;
-  brandColor: string | null;
 };
 
 export type PortalMeDto = {

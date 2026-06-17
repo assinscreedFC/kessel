@@ -9,6 +9,9 @@ export interface OrgSettings {
   vatNumber: string | null;
   country: string | null;
   defaultLocale: "fr" | "en" | null;
+  // Branding (08-04, PORT-07) — renvoyés par le même endpoint GET /api/orgs/me/settings.
+  logo: string | null;
+  brandColor: string | null;
 }
 
 export interface UpdateOrgSettingsInput {
