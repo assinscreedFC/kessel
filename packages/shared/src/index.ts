@@ -30,3 +30,7 @@ export * from "./contracts/projects";
 // Helper budget figé (PROJ-02, FOUND-05) : snapshot JSONB immuable calculé à la signature.
 // Déplacé depuis @kessel/projects pour casser le cycle projects↔proposals.
 export * from "./budget-snapshot";
+
+// Branding partagé (PORT-07) : OrgBrandingDto + validation couleur hex + couleur par défaut,
+// framework-free, source de vérité unique front/back (api, web, portal).
+export * from "./branding";

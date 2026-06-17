@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { isValidBrandColor, DEFAULT_BRAND_COLOR } from "@kessel/shared";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -11,9 +12,7 @@ import { useOrgSettings, useUpdateBranding } from "../api";
 // Formulaire branding de l'org : logo (URL) + couleur primaire (hex).
 // Patterns miroir settings-vat-page : SkeletonForm + ErrorState + viewer gating + toast Sonner.
 // Validation brandColor : client-side inline UX + serveur fait autorité (BadRequestException 400).
-// Anti CSS injection : /^#[0-9a-fA-F]{6}$/ validé serveur avant persistence (T-8-css).
-
-const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+// Anti CSS injection : isValidBrandColor (@kessel/shared) validé serveur avant persistence (T-8-css).
 
 function SkeletonForm() {
   return (
@@ -51,19 +50,19 @@ function BrandingForm({ initialLogo, initialBrandColor, isViewer }: BrandingForm
   const { mutate: update, isPending } = useUpdateBranding();
 
   const [logo, setLogo] = useState<string>(initialLogo ?? "");
-  const [brandColor, setBrandColor] = useState<string>(initialBrandColor ?? "#4F46E5");
+  const [brandColor, setBrandColor] = useState<string>(initialBrandColor ?? DEFAULT_BRAND_COLOR);
   const [colorError, setColorError] = useState<string | null>(null);
 
   // Sync si les données initiales changent (refetch).
   useEffect(() => {
     setLogo(initialLogo ?? "");
-    setBrandColor(initialBrandColor ?? "#4F46E5");
+    setBrandColor(initialBrandColor ?? DEFAULT_BRAND_COLOR);
   }, [initialLogo, initialBrandColor]);
 
   function handleColorChange(value: string) {
     setBrandColor(value);
     // Validation inline : UX seulement, le serveur est l'autorité.
-    if (value && !HEX_COLOR_RE.test(value)) {
+    if (value && !isValidBrandColor(value)) {
       setColorError("Format invalide. Utilisez un code hexadécimal (ex. #4F46E5).");
     } else {
       setColorError(null);
@@ -72,13 +71,8 @@ function BrandingForm({ initialLogo, initialBrandColor, isViewer }: BrandingForm
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setColorError(null);
-
-    // Valider le brandColor avant envoi (double validation UX).
-    if (brandColor && !HEX_COLOR_RE.test(brandColor)) {
-      setColorError("Format invalide. Utilisez un code hexadécimal (ex. #4F46E5).");
-      return;
-    }
+    // Le bouton submit est désactivé tant que colorError est défini (validation inline en continu),
+    // donc le chemin d'envoi est déjà protégé — pas de re-validation ici.
 
     update(
       {
@@ -133,7 +127,7 @@ function BrandingForm({ initialLogo, initialBrandColor, isViewer }: BrandingForm
         <div className="flex items-center gap-2">
           <input
             type="color"
-            value={HEX_COLOR_RE.test(brandColor) ? brandColor : "#4F46E5"}
+            value={isValidBrandColor(brandColor) ? brandColor : DEFAULT_BRAND_COLOR}
             onChange={(e) => handleColorChange(e.target.value)}
             className="h-10 w-10 rounded border border-slate-200 cursor-pointer p-1"
             aria-label="Sélecteur de couleur"
