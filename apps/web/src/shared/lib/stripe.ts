@@ -1,15 +1,25 @@
-import { loadStripe } from "@stripe/stripe-js";
+import { loadStripe, type Stripe } from "@stripe/stripe-js";
 
-// Singleton Stripe.js — chargé UNE SEULE FOIS au démarrage du module (pattern officiel Stripe).
-// La clé est UNIQUEMENT la publishable key (pk_test_... / pk_live_...) — jamais la secret key.
-// Guard : si la variable d'environnement est absente au build, on lève une erreur claire immédiatement
-// pour éviter un échec silencieux lors du premier paiement (Pitfall 6 — 03-RESEARCH).
-const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+// Singleton Stripe.js PARESSEUX — résolu à la PREMIÈRE utilisation (page de paiement), jamais au
+// module-eval. La clé est UNIQUEMENT la publishable key (pk_test_... / pk_live_...) — jamais la secret.
+//
+// Pourquoi paresseux (et pas un throw au niveau module) : app.tsx importe transitivement ce module
+// (via la page de paiement publique). Un `throw` au chargement du module casserait TOUT le bundle —
+// page blanche sur CHAQUE route (login, contacts, …) si la clé manque, sans erreur visible (Vite
+// avale l'erreur dans le graphe dynamique). Le guard ne doit échouer QUE quand Stripe est réellement
+// utilisé. Voir 03-RESEARCH Pitfall 6 (fail loud) — corrigé pour ne fail loud que sur la page paiement.
+let cached: Promise<Stripe | null> | null = null;
 
-if (!publishableKey) {
-  throw new Error(
-    "[Kessel] VITE_STRIPE_PUBLISHABLE_KEY manquant. Définissez-le dans apps/web/.env avant de lancer le serveur de développement.",
-  );
+export function getStripe(): Promise<Stripe | null> {
+  if (cached) return cached;
+
+  const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined;
+  if (!publishableKey) {
+    throw new Error(
+      "[Kessel] VITE_STRIPE_PUBLISHABLE_KEY manquant. Définissez-le dans apps/web/.env avant de prendre un paiement.",
+    );
+  }
+
+  cached = loadStripe(publishableKey);
+  return cached;
 }
-
-export const stripePromise = loadStripe(publishableKey);

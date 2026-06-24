@@ -4,7 +4,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { CheckCircle2, LinkIcon, Lock } from "lucide-react";
 import { Separator } from "@/shared/ui/separator";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { stripePromise } from "@/shared/lib/stripe";
+import { getStripe } from "@/shared/lib/stripe";
 import { usePublicPayment } from "../api";
 import { CheckoutForm } from "./checkout-form";
 
@@ -132,7 +132,7 @@ function PaymentCard({ payment, pageState, succeededHeadingRef, onSucceeded, onP
           <p className="my-4 text-3xl font-semibold text-slate-900">{formattedAmount}</p>
           <Separator className="my-4 bg-slate-200" />
 
-          <Elements stripe={stripePromise} options={{ clientSecret: payment.clientSecret }}>
+          <Elements stripe={getStripe()} options={{ clientSecret: payment.clientSecret }}>
             <CheckoutForm
               clientSecret={payment.clientSecret}
               amountCents={payment.amountCents}

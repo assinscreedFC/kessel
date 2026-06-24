@@ -5,6 +5,13 @@
   "projectType": "application",
   "tags": ["type:app", "scope:api"],
   "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node apps/api/esbuild.dev.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {

@@ -1,6 +1,9 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { I18nContext, I18nService } from "nestjs-i18n";
-import { checkVAT, countries } from "jsvat-next";
+// jsvat-next est CommonJS : en bundle ESM (esbuild external), les named imports échouent au runtime
+// (Node ne lit pas les named exports d'un module CJS). Import par défaut puis déstructuration.
+import jsvatNext from "jsvat-next";
+const { checkVAT, countries } = jsvatNext;
 import { forOrg } from "@kessel/db";
 import { isValidBrandColor } from "@kessel/shared";
 import type { UpdateOrgSettingsDto } from "./dto/update-org-settings.dto";

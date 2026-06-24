@@ -34,3 +34,7 @@ export * from "./budget-snapshot";
 // Branding partagé (PORT-07) : OrgBrandingDto + validation couleur hex + couleur par défaut,
 // framework-free, source de vérité unique front/back (api, web, portal).
 export * from "./branding";
+
+// Contrats module time-tracking (FX-04) : validation SIREN/SIRET (Luhn + exception La Poste),
+// TypeScript pur, source de vérité unique front/back.
+export * from "./contracts/timetrack";

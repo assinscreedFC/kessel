@@ -1,7 +1,8 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Globe, Key, LayoutTemplate, Paintbrush, Receipt, Tag, Users } from "lucide-react";
+import { NavLink, Navigate, Outlet } from "react-router-dom";
+import { Brain, Briefcase, Building2, Columns3, FileText, FolderKanban, Globe, Key, LayoutTemplate, LogOut, Paintbrush, Receipt, Tag, Users } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useLang } from "@/shared/lib/use-lang";
+import { useSession, useSignOut } from "@/shared/lib/use-session";
 
 // App-shell — couche `widgets` de la FSD. Layout unique (02-UI-SPEC) réutilisé par toutes les
 // pages : sidebar fixe 240px (bg-white border-r) + zone content slate-50.
@@ -39,6 +40,7 @@ function NavItem({ to, icon: Icon, label }: NavItemProps) {
 
 function Sidebar() {
   const { lang, switchLang } = useLang();
+  const signOut = useSignOut();
 
   return (
     <aside className="flex w-60 flex-col border-r border-slate-200 bg-white">
@@ -57,7 +59,7 @@ function Sidebar() {
         <NavItem to="/settings/vat" icon={Receipt} label="TVA & Localisation" />
         <NavItem to="/settings/branding" icon={Paintbrush} label="Branding" />
       </nav>
-      <div className="mt-auto border-t border-slate-200 px-4 py-3">
+      <div className="mt-auto border-t border-slate-200 px-4 py-3 flex flex-col gap-2">
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <Globe className="h-3.5 w-3.5" />
           <button
@@ -86,22 +88,51 @@ function Sidebar() {
             EN
           </button>
         </div>
+        <button
+          onClick={() => signOut().then(() => window.location.replace("/login"))}
+          className="flex h-8 items-center gap-2 rounded-md px-3 text-xs text-slate-500 hover:bg-slate-50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Déconnexion
+        </button>
       </div>
     </aside>
   );
 }
 
+// Guard de session — bloque le rendu du dashboard tant que la session n'est pas vérifiée.
+// Pas de session → redirect /login. Better Auth pose le cookie httpOnly ; l'app ne stocke aucun token.
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { data: session, isPending } = useSession();
+
+  if (isPending) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-400">
+        Chargement…
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 // Layout capé (pages CRUD denses) : content px-8 py-8 + cap max-w-6xl centré.
 export function AppShell() {
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <Sidebar />
-      <main className="flex-1 px-8 py-8">
-        <div className="mx-auto max-w-6xl">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-slate-50 text-slate-900">
+        <Sidebar />
+        <main className="flex-1 px-8 py-8">
+          <div className="mx-auto max-w-6xl">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </AuthGuard>
   );
 }
 
@@ -109,11 +140,13 @@ export function AppShell() {
 // son header sticky et son body en pleine largeur — 03-UI-SPEC §Proposal Editor page).
 export function WideAppShell() {
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <Sidebar />
-      <main className="flex min-w-0 flex-1 flex-col">
-        <Outlet />
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-slate-50 text-slate-900">
+        <Sidebar />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <Outlet />
+        </main>
+      </div>
+    </AuthGuard>
   );
 }

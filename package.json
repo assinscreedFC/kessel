@@ -5,6 +5,11 @@
   "private": true,
   "packageManager": "pnpm@10.29.3",
   "scripts": {
+    "dev": "nx run-many -t dev --projects=api,web,portal --parallel=3",
+    "dev:infra": "docker compose up postgres redis minio -d",
+    "dev:db": "node scripts/dev-migrate.mjs",
+    "dev:api": "nx run api:dev",
+    "dev:web": "nx run web:dev",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "nx run-many -t lint",

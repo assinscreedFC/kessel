@@ -20,6 +20,7 @@ import { OrganisationDetailPage } from "@/pages/organisations/ui/organisation-de
 import { SettingsApiPage } from "@/pages/settings-api/ui/settings-api-page";
 import { SettingsVatPage } from "@/pages/settings-vat/ui/settings-vat-page";
 import { SettingsBrandingPage } from "@/pages/settings-branding/ui/settings-branding-page";
+import { LoginPage } from "@/pages/login/ui/login-page";
 import { Toaster } from "@/shared/ui/sonner";
 
 // App shell (couche `app` de la FSD). Câble UNE SEULE FOIS la couche data : QueryClientProvider
@@ -37,6 +38,8 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          {/* Login/signup — hors AppShell, pas de session requise. */}
+          <Route path="/login" element={<LoginPage />} />
           <Route element={<AppShell />}>
             <Route path="/" element={<ContactsPage />} />
             <Route path="/contacts/:id" element={<ContactDetailPage />} />
