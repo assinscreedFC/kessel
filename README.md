@@ -23,6 +23,12 @@ The entry wedge is the **AI proposal engine**: turn a raw client brief into a **
 
 It is a modular monolith, full-stack TypeScript, designed to run with a single `docker compose up` so your data stays on your own infrastructure.
 
+### Why Kessel
+
+- **EU data sovereignty.** Self-host on your own infrastructure (single `docker compose up`); your client data never leaves where you put it. No US-cloud dependency, GDPR-aligned by design.
+- **One tool instead of five.** The full client loop in one place, where teams today stitch together a CRM, a proposal tool, a project tracker, a timesheet, and an invoicer.
+- **Open-core, not lock-in.** The core is **AGPL-3.0** and free to self-host. A planned proprietary `/ee` module covers enterprise features; the AGPL network clause protects against SaaS resale without contribution (an Odoo-style community + Enterprise structure). See [License](#license).
+
 ## Features
 
 ### Shipped (v1.0 — AI proposal engine)
@@ -48,6 +54,8 @@ These domains have their module boundaries in place (`@kessel/projects`, `@kesse
 - **SEPA + portal files + branding** — SEPA SetupIntent, MinIO upload/download, per-org branding.
 
 > Later milestones (v2) target time tracking, invoicing from time, Factur-X + Chorus Pro/PDP hand-off, profitability dashboards, and an MCP layer.
+>
+> **Payments — exploration:** alongside the planned Stripe/SEPA path (v1.1), we are exploring [GNU Taler](https://taler.net) as a sovereign, privacy-preserving payment option. This is a roadmap exploration, not a shipped feature.
 
 ## Tech Stack
 
@@ -170,6 +178,20 @@ What works now: CRM (contacts/deals), pricing grid, Tiptap proposal/template edi
 
 What is WIP: everything in the v1.1 feature list above (projects, payments, client portal, public API/webhooks, full CRM, EU VAT/i18n, SEPA/files/branding).
 
+## Contributing
+
+Kessel is open source and contributions are welcome — issues, bug reports, and pull requests.
+
+- Read [`CAHIER-DES-CHARGES.md`](CAHIER-DES-CHARGES.md) for the product vision, architecture, and module roadmap.
+- The codebase follows strict Nx module boundaries and multi-tenant isolation conventions; please keep PRs scoped to one module and include tests (Vitest + Testcontainers).
+- Contributions to the AGPL core are accepted under AGPL-3.0.
+
+Open an issue to discuss larger changes before starting.
+
 ## License
 
 [AGPL-3.0](LICENSE). The core is free and self-hostable. A proprietary `/ee` directory (planned) will cover enterprise features (SSO, advanced RBAC, white-label). The AGPL network clause protects against SaaS resale without contribution — an Odoo-style structure (community + Enterprise + integrator + future marketplace).
+
+---
+
+Maintainer: [@assinscreedFC](https://github.com/assinscreedFC) · Issues and pull requests welcome.
