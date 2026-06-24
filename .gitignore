@@ -29,3 +29,18 @@ graphify-out/
 
 # GSD planning artifacts (private)
 .planning/
+.gstack/
+
+# Claude Code local config (private)
+.claude/
+
+# graphify local index
+.graphify_python
+
+# Private business / grant materials (do not publish)
+2026-06-21_dossier-pepite-kessel.md
+2026-06-21_kessel-analyse-marche.pdf
+2026-06-21_kessel-cv.pdf
+2026-06-21_kessel-onepager.pdf
+2026-06-24_candidature-nlnet-ngi-taler.md
+kessel-taler-genai-prompt-log.txt
