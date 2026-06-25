@@ -158,9 +158,6 @@ kessel/
 │   ├── projects/    Boundary stub (WIP)
 │   └── timetrack/   Boundary stub (WIP)
 │
-├── docs/            RESEARCH-APPENDIX.md
-├── .planning/       Roadmap, requirements, milestone state (GSD workflow)
-├── CAHIER-DES-CHARGES.md   Full product spec (vision, market, architecture, phases)
 ├── docker-compose.yml · Caddyfile · nx.json · pnpm-workspace.yaml
 ```
 
@@ -182,7 +179,6 @@ What is WIP: everything in the v1.1 feature list above (projects, payments, clie
 
 Kessel is open source and contributions are welcome — issues, bug reports, and pull requests.
 
-- Read [`CAHIER-DES-CHARGES.md`](CAHIER-DES-CHARGES.md) for the product vision, architecture, and module roadmap.
 - The codebase follows strict Nx module boundaries and multi-tenant isolation conventions; please keep PRs scoped to one module and include tests (Vitest + Testcontainers).
 - Contributions to the AGPL core are accepted under AGPL-3.0.
 
